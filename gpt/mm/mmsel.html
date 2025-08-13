@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tutorial Choice</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      body {
+        background: linear-gradient(
+          270deg,
+          #3ce3a4 0%,
+          #35d8ca 43%,
+          #31d1e1 58%,
+          #2fc9ff 100%
+        );
+        min-height: 100vh;
+        font-family: Arial, sans-serif;
+      }
+
+      /* Tutorial choice styles */
+      .tutorial-container {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        transition: opacity 0.5s ease, transform 0.5s ease;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        position: absolute;
+        top: 0;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      header h1 {
+        flex: 1;
+        margin: 0;
+        font-size: 1.4rem;
+        text-align: center;
+      }
+
+      .back-button {
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+      }
+
+      .selection-card {
+        background: rgba(255, 255, 255, 0.96);
+        border-radius: 0.75rem;
+        padding: 2rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        max-width: 520px;
+        margin: 0 auto;
+        width: 90%;
+      }
+
+      h2.question {
+        font-size: 1.25rem;
+        margin-bottom: 2rem;
+        text-align: center;
+      }
+
+      .option-row {
+        display: flex;
+        gap: 1.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .choice-btn {
+        padding: 0.9rem 2.5rem;
+        border: none;
+        border-radius: 9999px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .choice-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+      }
+
+      .btn-yes {
+        background: linear-gradient(45deg, #4caf50, #8bc34a);
+      }
+
+      .btn-no {
+        background: linear-gradient(45deg, #ff6b6b, #ffa500);
+      }
+
+      /* Memory Match settings styles */
+      .memory-match-container {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.5s ease 0.3s, transform 0.5s ease 0.3s;
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .memory-match-container.active {
+        opacity: 1;
+        transform: translateY(0);
+        display: flex;
+      }
+
+      /* Difficulty selector styles */
+      .difficulty-selector {
+        position: relative;
+        margin-bottom: 1.5rem;
+      }
+
+      .selector-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+      }
+
+      .selector-toggle:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+      }
+
+      .selector-toggle.active {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+
+      .selector-options {
+        position: absolute;
+        width: 100%;
+        max-height: 0;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 0 0 0.75rem 0.75rem;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+        z-index: 10;
+        transition: max-height 0.3s ease-out;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        border-top: none;
+      }
+
+      .selector-options.open {
+        max-height: 400px;
+      }
+
+      .option-item {
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .option-item:hover {
+        background: rgba(59, 130, 246, 0.08);
+      }
+
+      .option-item.selected {
+        background: rgba(59, 130, 246, 0.15);
+      }
+
+      .option-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        font-size: 14px;
+      }
+
+      .option-details {
+        flex: 1;
+      }
+
+      .option-title {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 2px;
+      }
+
+      .option-desc {
+        font-size: 0.8rem;
+        color: #6b7280;
+      }
+
+      .option-stars {
+        display: flex;
+        gap: 2px;
+      }
+
+      .star {
+        color: #f59e0b;
+        font-size: 0.8rem;
+      }
+
+      .star.empty {
+        color: #e5e7eb;
+      }
+
+      /* Difficulty-specific colors */
+      .easy-bg {
+        background: rgba(74, 222, 128, 0.15);
+      }
+      .medium-bg {
+        background: rgba(34, 211, 238, 0.15);
+      }
+      .hard-bg {
+        background: rgba(96, 165, 250, 0.15);
+      }
+      .expert-bg {
+        background: rgba(244, 63, 94, 0.15);
+      }
+
+      .easy-icon {
+        background: rgba(74, 222, 128, 0.2);
+        color: #16a34a;
+      }
+      .medium-icon {
+        background: rgba(34, 211, 238, 0.2);
+        color: #06b6d4;
+      }
+      .hard-icon {
+        background: rgba(96, 165, 250, 0.2);
+        color: #3b82f6;
+      }
+      .expert-icon {
+        background: rgba(244, 63, 94, 0.2);
+        color: #e11d48;
+      }
+
+      /* Toggle buttons */
+      .difficulty-toggle {
+        display: flex;
+        margin-bottom: 1.5rem;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background: #f3f4f6;
+      }
+
+      .difficulty-toggle button {
+        flex: 1;
+        padding: 0.75rem;
+        border: none;
+        background: transparent;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .difficulty-toggle button.toggle-active {
+        background: #3b82f6;
+        color: white;
+      }
+
+      /* Start button */
+      .start-btn {
+        display: block;
+        width: 100%;
+        padding: 1rem;
+        background: linear-gradient(45deg, #3b82f6, #6366f1);
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 1.5rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .start-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      /* Form inputs */
+      .select-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #1f2937;
+      }
+
+      .select-input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+      }
+
+      /* Utility classes */
+      .flex {
+        display: flex;
+      }
+      .items-center {
+        align-items: center;
+      }
+      .mr-2 {
+        margin-right: 0.5rem;
+      }
+      .rotate-180 {
+        transform: rotate(180deg);
+      }
+
+      .difficulty-details {
+        margin: 1rem 0;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 0.5rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Tutorial Choice Container -->
+    <div class="tutorial-container" id="tutorialContainer">
+      <header>
+        <a href="/dashboard.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+        <h1>Tutorial Choice</h1>
+      </header>
+
+      <div class="selection-card">
+        <h2 class="question">Would you like to watch the tutorial first?</h2>
+
+        <div class="option-row">
+          <button class="choice-btn btn-yes" id="yesBtn">
+            👍 Yes, show me
+          </button>
+
+          <button class="choice-btn btn-no" id="noBtn">
+            🚀 No, let's start
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memory Match Settings Container (hidden initially) -->
+    <div class="memory-match-container" id="memoryMatchContainer">
+      <header>
+        <a href="/dashboard.html" class="back-button">
+          <i class="fas fa-arrow-left"></i>
+          Back to Dashboard
+        </a>
+        <h1>Memory Match Settings</h1>
+      </header>
+
+      <div class="selection-card">
+        <!-- Difficulty selector -->
+        <div class="difficulty-selector">
+          <div class="selector-toggle" id="selectorToggle">
+            <div class="flex items-center">
+              <div class="option-icon medium-icon">
+                <i class="fas fa-balance-scale"></i>
+              </div>
+              <div class="option-details">
+                <div class="option-title">Medium</div>
+                <div class="option-desc">5 pairs, 1.5s hover time</div>
+              </div>
+            </div>
+            <i
+              class="fas fa-chevron-down text-gray-400 transition-transform"
+            ></i>
+          </div>
+
+          <div class="selector-options" id="selectorOptions">
+            <!-- Easy -->
+            <div class="option-item easy-bg" data-value="easy">
+              <div class="option-icon easy-icon">
+                <i class="fas fa-seedling"></i>
+              </div>
+              <div class="option-details">
+                <div class="option-title">Easy</div>
+                <div class="option-desc">4 pairs, 0.5s hover time</div>
+              </div>
+              <div class="option-stars">
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star empty"></i>
+                <i class="fas fa-star star empty"></i>
+                <i class="fas fa-star star empty"></i>
+              </div>
+            </div>
+
+            <!-- Medium -->
+            <div class="option-item medium-bg selected" data-value="medium">
+              <div class="option-icon medium-icon">
+                <i class="fas fa-balance-scale"></i>
+              </div>
+              <div class="option-details">
+                <div class="option-title">Medium</div>
+                <div class="option-desc">5 pairs, 1.5s hover time</div>
+              </div>
+              <div class="option-stars">
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star empty"></i>
+                <i class="fas fa-star star empty"></i>
+              </div>
+            </div>
+
+            <!-- Hard -->
+            <div class="option-item hard-bg" data-value="hard">
+              <div class="option-icon hard-icon">
+                <i class="fas fa-fire"></i>
+              </div>
+              <div class="option-details">
+                <div class="option-title">Hard</div>
+                <div class="option-desc">6 pairs, 3 minute limit</div>
+              </div>
+              <div class="option-stars">
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star empty"></i>
+              </div>
+            </div>
+
+            <!-- Expert -->
+            <div class="option-item expert-bg" data-value="expert">
+              <div class="option-icon expert-icon">
+                <i class="fas fa-crown"></i>
+              </div>
+              <div class="option-details">
+                <div class="option-title">Expert</div>
+                <div class="option-desc">9 pairs, 2 minute limit</div>
+              </div>
+              <div class="option-stars">
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star"></i>
+                <i class="fas fa-star star"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="difficultyDetails" class="difficulty-details">
+          <p><strong>Medium Difficulty:</strong></p>
+          <ul>
+            <li>5 pairs of cards (10 total)</li>
+            <li>10 seconds to memorize</li>
+            <li>1.5 seconds hover time to flip</li>
+            <li>No time limit</li>
+          </ul>
+        </div>
+
+        <button class="start-btn" onclick="startGame()">
+          <i class="fas fa-play mr-2"></i> Start Game
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // Global variables
+      const presetSettings = {
+        easy: {
+          previewTime: 10,
+          hoverTime: 500,
+          timeLimit: 0,
+          rows: 2,
+          cols: 4,
+        },
+        medium: {
+          previewTime: 10,
+          hoverTime: 750,
+          timeLimit: 0,
+          rows: 2,
+          cols: 5,
+        },
+        hard: {
+          previewTime: 7.5,
+          hoverTime: 1000,
+          timeLimit: 180,
+          rows: 3,
+          cols: 4,
+        },
+        expert: {
+          previewTime: 7.5,
+          hoverTime: 1500,
+          timeLimit: 120,
+          rows: 3,
+          cols: 6,
+        },
+      };
+
+      const difficultyDetails = {
+        easy: {
+          pairs: 4,
+          totalCards: 8,
+          previewTime: 10,
+          hoverTime: 500,
+          timeLimit: "No time limit",
+        },
+        medium: {
+          pairs: 5,
+          totalCards: 10,
+          previewTime: 10,
+          hoverTime: 750,
+          timeLimit: "No time limit",
+        },
+        hard: {
+          pairs: 6,
+          totalCards: 12,
+          previewTime: 7.5,
+          hoverTime: 1000,
+          timeLimit: "3 minutes",
+        },
+        expert: {
+          pairs: 9,
+          totalCards: 18,
+          previewTime: 5,
+          hoverTime: 1500,
+          timeLimit: "2 minutes",
+        },
+      };
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const tutorialContainer = document.getElementById("tutorialContainer");
+        const memoryMatchContainer = document.getElementById(
+          "memoryMatchContainer"
+        );
+        const yesBtn = document.getElementById("yesBtn");
+        const noBtn = document.getElementById("noBtn");
+
+        // Yes button - go to tutorial
+        yesBtn.addEventListener("click", function () {
+          window.location.href = "tuturialcard.html";
+        });
+
+        // No button - transition to memory match settings
+        noBtn.addEventListener("click", function () {
+          tutorialContainer.style.opacity = "0";
+          tutorialContainer.style.transform = "translateY(-20px)";
+
+          setTimeout(() => {
+            tutorialContainer.style.display = "none";
+            memoryMatchContainer.classList.add("active");
+            initMemoryMatchSettings();
+          }, 500);
+        });
+      });
+
+      function initMemoryMatchSettings() {
+        const selectorToggle = document.getElementById("selectorToggle");
+        const selectorOptions = document.getElementById("selectorOptions");
+        const optionItems = document.querySelectorAll(".option-item");
+
+        selectorToggle.addEventListener("click", function () {
+          selectorOptions.classList.toggle("open");
+          this.classList.toggle("active");
+          const icon = this.querySelector("i");
+          if (icon) icon.classList.toggle("rotate-180");
+        });
+
+        optionItems.forEach((item) => {
+          item.addEventListener("click", function () {
+            const value = this.getAttribute("data-value");
+
+            // Update selected item
+            optionItems.forEach((opt) => opt.classList.remove("selected"));
+            this.classList.add("selected");
+
+            // Update toggle display
+            const icon = this.querySelector(".option-icon").cloneNode(true);
+            const title = this.querySelector(".option-title").textContent;
+            const desc = this.querySelector(".option-desc").textContent;
+
+            selectorToggle.innerHTML = `
+              <div class="flex items-center">
+                ${icon.outerHTML}
+                <div class="option-details">
+                  <div class="option-title">${title}</div>
+                  <div class="option-desc">${desc}</div>
+                </div>
+              </div>
+              <i class="fas fa-chevron-down text-gray-400 transition-transform"></i>
+            `;
+
+            updateDifficultyDetails(value);
+            selectorOptions.classList.remove("open");
+            selectorToggle.classList.remove("active");
+          });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener("click", function (e) {
+          if (
+            !selectorToggle.contains(e.target) &&
+            !selectorOptions.contains(e.target)
+          ) {
+            selectorOptions.classList.remove("open");
+            selectorToggle.classList.remove("active");
+          }
+        });
+
+        // Initialize with medium difficulty details
+        updateDifficultyDetails("medium");
+      }
+
+      function updateDifficultyDetails(difficulty) {
+        const details = difficultyDetails[difficulty];
+        const detailsElement = document.getElementById("difficultyDetails");
+
+        detailsElement.innerHTML = `
+          <p><strong>${
+            difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+          } Difficulty:</strong></p>
+          <ul>
+            <li>${details.pairs} pairs of cards (${
+          details.totalCards
+        } total)</li>
+            <li>${details.previewTime} seconds to memorize</li>
+            <li>${details.hoverTime / 1000} seconds hover time to flip</li>
+            <li>${details.timeLimit}</li>
+          </ul>
+        `;
+      }
+
+      function startGame() {
+        const selectedOption = document.querySelector(".option-item.selected");
+        const difficulty = selectedOption
+          ? selectedOption.getAttribute("data-value")
+          : "medium";
+
+        const settings = {
+          ...presetSettings[difficulty],
+          difficulty: difficulty,
+        };
+
+        localStorage.setItem("memoryMatchSettings", JSON.stringify(settings));
+        window.location.href = "mm.html";
+      }
+    </script>
+  </body>
+</html>

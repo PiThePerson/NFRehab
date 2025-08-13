@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Two-Player Squat Tracker</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #fff;
+        min-height: 100vh;
+        overflow-x: hidden;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      h1 {
+        font-size: 3rem;
+        margin-bottom: 10px;
+        background: linear-gradient(45deg, #00dbde, #fc00ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .subtitle {
+        font-size: 1.2rem;
+        color: #a0a0c0;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .game-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+
+      .camera-section {
+        flex: 1;
+        min-width: 300px;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .section-title {
+        text-align: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        color: #00dbde;
+      }
+
+      .camera-container {
+        position: relative;
+        width: 100%;
+        height: 400px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 15px;
+      }
+
+      #video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      button {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        background: linear-gradient(45deg, #00dbde, #fc00ff);
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      button:disabled {
+        background: #555;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      select {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        margin-bottom: 15px;
+      }
+
+      .stats-container {
+        flex: 1;
+        min-width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .player-stats {
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .player-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .player-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+      }
+
+      .player1 .player-color {
+        background: linear-gradient(45deg, #2196f3, #21cbf3);
+      }
+
+      .player2 .player-color {
+        background: linear-gradient(45deg, #4caf50, #8bc34a);
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .stat-label {
+        font-weight: 600;
+        color: #a0a0c0;
+      }
+
+      .stat-value {
+        font-weight: bold;
+        font-size: 1.2rem;
+      }
+
+      .feedback-container {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+      }
+
+      .feedback {
+        padding: 15px 30px;
+        border-radius: 50px;
+        font-weight: bold;
+        font-size: 1.2rem;
+        opacity: 0;
+        transform: scale(0.8);
+        transition: all 0.3s ease;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .feedback.player1 {
+        background: linear-gradient(45deg, #2196f3, #21cbf3);
+      }
+
+      .feedback.player2 {
+        background: linear-gradient(45deg, #4caf50, #8bc34a);
+      }
+
+      .feedback.show {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .instructions {
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 15px;
+        padding: 25px;
+        margin-top: 30px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .instructions h2 {
+        color: #00dbde;
+        margin-bottom: 15px;
+        text-align: center;
+      }
+
+      .instructions ul {
+        padding-left: 20px;
+        margin-bottom: 20px;
+      }
+
+      .instructions li {
+        margin-bottom: 10px;
+        line-height: 1.6;
+      }
+
+      .highlight {
+        background: rgba(0, 219, 222, 0.2);
+        padding: 2px 5px;
+        border-radius: 4px;
+      }
+
+      .winner-banner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        background: linear-gradient(45deg, #ff0080, #ff8c00);
+        padding: 40px 60px;
+        border-radius: 20px;
+        text-align: center;
+        z-index: 100;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        opacity: 0;
+        transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      .winner-banner.show {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+
+      .winner-banner h2 {
+        font-size: 3rem;
+        margin-bottom: 20px;
+      }
+
+      .winner-banner p {
+        font-size: 1.5rem;
+        margin-bottom: 30px;
+      }
+
+      @media (max-width: 768px) {
+        .game-container {
+          flex-direction: column;
+        }
+
+        h1 {
+          font-size: 2.2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>DUAL PLAYER SQUAT CHALLENGE</h1>
+        <p class="subtitle">
+          Track squats for two players simultaneously with real-time pose
+          detection
+        </p>
+      </header>
+
+      <div class="game-container">
+        <div class="camera-section">
+          <h2 class="section-title">CAMERA FEED</h2>
+          <div class="camera-container">
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="canvas"></canvas>
+          </div>
+
+          <div class="controls">
+            <button id="startBtn">START GAME</button>
+            <button id="resetBtn">RESET</button>
+          </div>
+
+          <select id="cameraSelect"></select>
+
+          <div class="feedback-container">
+            <div class="feedback player1" id="feedback1">GOOD SQUAT!</div>
+            <div class="feedback player2" id="feedback2">GOOD SQUAT!</div>
+          </div>
+        </div>
+
+        <div class="stats-container">
+          <div class="player-stats player1">
+            <div class="player-title">
+              <div class="player-color"></div>
+              <h2>PLAYER 1 (BLUE)</h2>
+            </div>
+
+            <div class="stat-row">
+              <span class="stat-label">Squat Count:</span>
+              <span class="stat-value" id="p1Count">0</span>
+            </div>
+
+            <div class="stat-row">
+              <span class="stat-label">Current State:</span>
+              <span class="stat-value" id="p1State">READY</span>
+            </div>
+
+            <div class="stat-row">
+              <span class="stat-label">Knee Angle:</span>
+              <span class="stat-value" id="p1Angle">--°</span>
+            </div>
+
+            <div class="stat-row">
+              <span class="stat-label">Squat Depth:</span>
+              <span class="stat-value" id="p1Depth">--%</span>
+            </div>
+          </div>
+
+          <div class="player-stats player2">
+            <div class="player-title">
+              <div class="player-color"></div>
+              <h2>PLAYER 2 (GREEN)</h2>
+            </div>
+
+            <div class="stat-row">
+              <span class="stat-label">Squat Count:</span>
+              <span class="stat-value" id="p2Count">0</span>
+            </div>
+
+            <div class="stat-row">
+              <span class="stat-label">Current State:</span>
+              <span class="stat-value" id="p2State">READY</span>
+            </div>
+
+            <div class="stat-row">
+              <span class="stat-label">Knee Angle:</span>
+              <span class="stat-value" id="p2Angle">--°</span>
+            </div>
+
+            <div class="stat-row">
+              <span class="stat-label">Squat Depth:</span>
+              <span class="stat-value" id="p2Depth">--%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="instructions">
+        <h2>HOW TO PLAY</h2>
+        <ul>
+          <li>
+            Position two players in front of the camera - one on the
+            <span class="highlight">left side</span> and one on the
+            <span class="highlight">right side</span>
+          </li>
+          <li>
+            Press <span class="highlight">START GAME</span> to begin tracking
+            squats
+          </li>
+          <li>
+            Perform squats by bending your knees to at least
+            <span class="highlight">90 degrees</span>
+          </li>
+          <li>Return to standing position to complete one squat repetition</li>
+          <li>
+            First player to complete
+            <span class="highlight">10 squats</span> wins the game!
+          </li>
+          <li>
+            Each good squat will show
+            <span class="highlight">real-time feedback</span>
+          </li>
+        </ul>
+        <p>
+          Note: Ensure good lighting and avoid overlapping players for best
+          detection results.
+        </p>
+      </div>
+
+      <div class="winner-banner" id="winnerBanner">
+        <h2>🏆 WINNER! 🏆</h2>
+        <p id="winnerText">Player 1 wins the game!</p>
+        <button id="playAgainBtn">PLAY AGAIN</button>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+    <script>
+      class DualPlayerSquatTracker {
+        constructor() {
+          // DOM elements
+          this.video = document.getElementById("video");
+          this.canvas = document.getElementById("canvas");
+          this.ctx = this.canvas.getContext("2d");
+          this.startBtn = document.getElementById("startBtn");
+          this.resetBtn = document.getElementById("resetBtn");
+          this.cameraSelect = document.getElementById("cameraSelect");
+          this.feedback1 = document.getElementById("feedback1");
+          this.feedback2 = document.getElementById("feedback2");
+          this.winnerBanner = document.getElementById("winnerBanner");
+          this.winnerText = document.getElementById("winnerText");
+          this.playAgainBtn = document.getElementById("playAgainBtn");
+
+          // Game state
+          this.gameActive = false;
+          this.players = [
+            {
+              id: "p1",
+              color: "#2196F3",
+              count: 0,
+              state: "up",
+              hist: [],
+              lastSquatTime: 0,
+            },
+            {
+              id: "p2",
+              color: "#4CAF50",
+              count: 0,
+              state: "up",
+              hist: [],
+              lastSquatTime: 0,
+            },
+          ];
+
+          // Pose detectors for each player
+          this.poseDetectors = [
+            new Pose({
+              locateFile: (file) =>
+                `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+            }),
+            new Pose({
+              locateFile: (file) =>
+                `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+            }),
+          ];
+
+          // Configure pose detectors
+          this.poseDetectors.forEach((detector) => {
+            detector.setOptions({
+              modelComplexity: 1,
+              smoothLandmarks: true,
+              minDetectionConfidence: 0.5,
+              minTrackingConfidence: 0.5,
+            });
+          });
+
+          // Initialize
+          this.setupCamera();
+          this.setupEventListeners();
+          this.initializePose();
+        }
+
+        async setupCamera() {
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cameras = devices.filter(
+              (device) => device.kind === "videoinput"
+            );
+
+            // Clear and populate camera select
+            this.cameraSelect.innerHTML = "";
+            cameras.forEach((camera, index) => {
+              const option = document.createElement("option");
+              option.value = camera.deviceId;
+              option.textContent = camera.label || `Camera ${index + 1}`;
+              this.cameraSelect.appendChild(option);
+            });
+
+            // Start with default camera
+            this.startCamera(cameras[0].deviceId);
+
+            // Handle camera change
+            this.cameraSelect.addEventListener("change", () => {
+              this.startCamera(this.cameraSelect.value);
+            });
+          } catch (error) {
+            console.error("Camera setup error:", error);
+            alert(
+              "Could not access cameras. Please ensure you have a camera connected and permissions granted."
+            );
+          }
+        }
+
+        async startCamera(deviceId) {
+          if (this.stream) {
+            this.stream.getTracks().forEach((track) => track.stop());
+          }
+
+          try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: deviceId },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: "user",
+              },
+              audio: false,
+            });
+
+            this.video.srcObject = this.stream;
+            await this.video.play();
+
+            // Set canvas size to match video
+            this.canvas.width = this.video.videoWidth;
+            this.canvas.height = this.video.videoHeight;
+
+            // Start pose detection
+            this.detectPose();
+          } catch (error) {
+            console.error("Camera start error:", error);
+          }
+        }
+
+        setupEventListeners() {
+          this.startBtn.addEventListener("click", () => {
+            if (!this.gameActive) {
+              this.startGame();
+            } else {
+              this.pauseGame();
+            }
+          });
+
+          this.resetBtn.addEventListener("click", () => {
+            this.resetGame();
+          });
+
+          this.playAgainBtn.addEventListener("click", () => {
+            this.winnerBanner.classList.remove("show");
+            this.resetGame();
+            this.startGame();
+          });
+        }
+
+        initializePose() {
+          // Set up results handlers for each pose detector
+          this.poseDetectors[0].onResults((results) =>
+            this.processResults(0, results)
+          );
+          this.poseDetectors[1].onResults((results) =>
+            this.processResults(1, results)
+          );
+        }
+
+        startGame() {
+          this.gameActive = true;
+          this.startBtn.textContent = "PAUSE GAME";
+          this.startBtn.style.background =
+            "linear-gradient(45deg, #ff416c, #ff4b2b)";
+        }
+
+        pauseGame() {
+          this.gameActive = false;
+          this.startBtn.textContent = "RESUME GAME";
+          this.startBtn.style.background =
+            "linear-gradient(45deg, #00dbde, #fc00ff)";
+        }
+
+        resetGame() {
+          this.players.forEach((player) => {
+            player.count = 0;
+            player.state = "up";
+            player.hist = [];
+            player.lastSquatTime = 0;
+
+            // Update UI
+            document.getElementById(`${player.id}Count`).textContent = "0";
+            document.getElementById(`${player.id}State`).textContent = "READY";
+            document.getElementById(`${player.id}Angle`).textContent = "--°";
+            document.getElementById(`${player.id}Depth`).textContent = "--%";
+          });
+
+          this.pauseGame();
+        }
+
+        detectPose() {
+          const detect = () => {
+            if (this.video.readyState >= 2) {
+              // Create off-screen canvases for each player
+              const offscreenCanvas1 = document.createElement("canvas");
+              const offscreenCanvas2 = document.createElement("canvas");
+
+              const width = this.video.videoWidth;
+              const height = this.video.videoHeight;
+
+              // Set dimensions for half-screen
+              offscreenCanvas1.width = width / 2;
+              offscreenCanvas1.height = height;
+              offscreenCanvas2.width = width / 2;
+              offscreenCanvas2.height = height;
+
+              // Get contexts
+              const ctx1 = offscreenCanvas1.getContext("2d");
+              const ctx2 = offscreenCanvas2.getContext("2d");
+
+              // Draw video halves to off-screen canvases
+              ctx1.drawImage(
+                this.video,
+                0,
+                0,
+                width / 2,
+                height,
+                0,
+                0,
+                width / 2,
+                height
+              );
+              ctx2.drawImage(
+                this.video,
+                width / 2,
+                0,
+                width / 2,
+                height,
+                0,
+                0,
+                width / 2,
+                height
+              );
+
+              // Send images to pose detectors
+              this.poseDetectors[0].send({ image: offscreenCanvas1 });
+              this.poseDetectors[1].send({ image: offscreenCanvas2 });
+            }
+
+            requestAnimationFrame(detect);
+          };
+
+          detect();
+        }
+
+        processResults(playerIndex, results) {
+          if (!this.gameActive) return;
+
+          this.ctx.save();
+
+          // Clear only the player's half of the canvas
+          const width = this.canvas.width;
+          const height = this.canvas.height;
+          const playerWidth = width / 2;
+
+          this.ctx.clearRect(playerIndex * playerWidth, 0, playerWidth, height);
+
+          // Draw video frame
+          if (results.image) {
+            this.ctx.drawImage(
+              results.image,
+              playerIndex * playerWidth,
+              0,
+              playerWidth,
+              height
+            );
+          }
+
+          // Process landmarks if detected
+          if (results.poseLandmarks) {
+            this.drawSkeleton(playerIndex, results.poseLandmarks);
+            this.updatePlayer(playerIndex, results.poseLandmarks);
+          }
+
+          this.ctx.restore();
+        }
+
+        drawSkeleton(playerIndex, landmarks) {
+          const width = this.canvas.width;
+          const playerWidth = width / 2;
+
+          this.ctx.save();
+
+          // Move to player's half
+          this.ctx.translate(playerIndex * playerWidth, 0);
+
+          // Draw all pose connections
+          drawConnectors(this.ctx, landmarks, Pose.POSE_CONNECTIONS, {
+            color: this.players[playerIndex].color,
+            lineWidth: 4,
+          });
+
+          // Draw key landmarks
+          const keyLandmarks = [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16, // Arms
+            23,
+            24,
+            25,
+            26,
+            27,
+            28, // Legs
+            29,
+            30,
+            31,
+            32, // Feet
+          ];
+
+          drawLandmarks(
+            this.ctx,
+            keyLandmarks.map((index) => landmarks[index]),
+            { color: "#FF1744", radius: 6 }
+          );
+
+          this.ctx.restore();
+        }
+
+        updatePlayer(playerIndex, landmarks) {
+          const player = this.players[playerIndex];
+
+          // Calculate left and right knee angles
+          const leftHip = landmarks[23];
+          const leftKnee = landmarks[25];
+          const leftAnkle = landmarks[27];
+          const leftAngle = this.calculateAngle(leftHip, leftKnee, leftAnkle);
+
+          const rightHip = landmarks[24];
+          const rightKnee = landmarks[26];
+          const rightAnkle = landmarks[28];
+          const rightAngle = this.calculateAngle(
+            rightHip,
+            rightKnee,
+            rightAnkle
+          );
+
+          // Use the average angle for more stable detection
+          const kneeAngle = (leftAngle + rightAngle) / 2;
+
+          // Calculate squat depth as percentage (0-100%)
+          const maxSquatAngle = 180; // Standing position
+          const minSquatAngle = 70; // Deep squat position
+          let squatDepth = 0;
+
+          if (kneeAngle <= minSquatAngle) {
+            squatDepth = 100;
+          } else if (kneeAngle >= maxSquatAngle) {
+            squatDepth = 0;
+          } else {
+            squatDepth = Math.round(
+              ((maxSquatAngle - kneeAngle) / (maxSquatAngle - minSquatAngle)) *
+                100
+            );
+          }
+
+          // Update UI
+          document.getElementById(
+            `${player.id}Angle`
+          ).textContent = `${Math.round(kneeAngle)}°`;
+          document.getElementById(
+            `${player.id}Depth`
+          ).textContent = `${squatDepth}%`;
+
+          // Squat detection logic
+          if (player.state === "up" && kneeAngle < 90) {
+            player.state = "down";
+            document.getElementById(`${player.id}State`).textContent = "DOWN";
+          } else if (player.state === "down" && kneeAngle > 120) {
+            player.state = "up";
+            player.count++;
+            player.lastSquatTime = Date.now();
+            document.getElementById(`${player.id}State`).textContent = "UP";
+            document.getElementById(`${player.id}Count`).textContent =
+              player.count;
+
+            // Show feedback
+            this.showFeedback(playerIndex);
+
+            // Check for winner
+            if (player.count >= 10) {
+              this.declareWinner(playerIndex);
+            }
+          }
+        }
+
+        calculateAngle(a, b, c) {
+          if (
+            !a ||
+            !b ||
+            !c ||
+            a.visibility < 0.1 ||
+            b.visibility < 0.1 ||
+            c.visibility < 0.1
+          ) {
+            return 180; // Default standing angle
+          }
+
+          const ab = [a.x - b.x, a.y - b.y];
+          const cb = [c.x - b.x, c.y - b.y];
+
+          const dot = ab[0] * cb[0] + ab[1] * cb[1];
+          const magAB = Math.sqrt(ab[0] * ab[0] + ab[1] * ab[1]);
+          const magCB = Math.sqrt(cb[0] * cb[0] + cb[1] * cb[1]);
+
+          let angle = Math.acos(dot / (magAB * magCB));
+          angle = angle * (180 / Math.PI);
+
+          return angle;
+        }
+
+        showFeedback(playerIndex) {
+          const feedback = playerIndex === 0 ? this.feedback1 : this.feedback2;
+
+          // Show feedback
+          feedback.classList.add("show");
+
+          // Hide after delay
+          setTimeout(() => {
+            feedback.classList.remove("show");
+          }, 1000);
+        }
+
+        declareWinner(playerIndex) {
+          this.gameActive = false;
+          this.winnerText.textContent = `Player ${
+            playerIndex + 1
+          } wins the game!`;
+          this.winnerBanner.classList.add("show");
+        }
+      }
+
+      // Initialize the tracker when page loads
+      window.addEventListener("load", () => {
+        const tracker = new DualPlayerSquatTracker();
+      });
+    </script>
+  </body>
+</html>

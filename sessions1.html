@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Session Records</title>
+    <link rel="stylesheet" href="css/sessions.css" />
+    <link rel="stylesheet" href="css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      /* Make ONLY the records list scrollable */
+      #recordsContainer {
+        max-height: 500px;
+        overflow-y: auto;
+        margin-top: 10px;
+      }
+      /* Optional: Style scrollbar to match your theme */
+      #recordsContainer::-webkit-scrollbar {
+        width: 6px;
+      }
+      #recordsContainer::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+      }
+
+      /* Horizontal scroll for stat cards */
+      .stats-scroll-container {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .stats-grid {
+        display: inline-flex;
+        gap: 15px;
+        padding: 0 5px;
+        min-width: 100%;
+      }
+      .stat-card {
+        min-width: 150px;
+        flex-shrink: 0;
+      }
+
+      .result-card {
+        background-color: white !important;
+        border: 1px solid rgba(0, 0, 0, 0.1) !important;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .result-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 119, 255, 0.2);
+        border-color: rgba(0, 119, 255, 0.5) !important;
+      }
+      .result-card:active {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(0, 119, 255, 0.2);
+      }
+      .result-card .stat-label {
+        color: #333;
+        font-weight: 500;
+      }
+      .result-card .stat-value {
+        color: #0077ff;
+        font-weight: 700;
+        position: relative;
+        display: inline-block;
+      }
+      .result-card .stat-value::after {
+        content: "";
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: #0077ff;
+        transform: scaleX(0);
+        transform-origin: right;
+        transition: transform 0.3s ease;
+      }
+      .result-card:hover .stat-value::after {
+        transform: scaleX(1);
+        transform-origin: left;
+      }
+
+      .stats-scroll-container::-webkit-scrollbar {
+        height: 5px;
+      }
+      .stats-scroll-container::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+      .stats-scroll-container::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+      }
+
+      /* Device chip */
+      .device-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: rgba(0, 119, 255, 0.12);
+        color: #0a65cc;
+        border: 1px solid rgba(0, 119, 255, 0.25);
+        white-space: nowrap;
+      }
+      .device-chip i {
+        font-size: 12px;
+      }
+
+      /* Record item meta wrap */
+      .record-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      /* ── Sync banner ───────────────────────────── */
+      .sync-banner {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        margin: 10px 0 0;
+        font-size: 14px;
+        background: rgba(0, 102, 255, 0.12);
+        border: 1px solid rgba(0, 102, 255, 0.25);
+        color: #0a65cc;
+      }
+      .sync-banner.show {
+        display: flex;
+      }
+      .sync-banner.success {
+        background: rgba(16, 185, 129, 0.12);
+        border-color: rgba(16, 185, 129, 0.35);
+        color: #065f46;
+      }
+      .sync-banner.error {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.35);
+        color: #7f1d1d;
+      }
+      .sync-icon {
+        font-size: 14px;
+      }
+
+      /* ── Progress bar ──────────────────────────── */
+      .sync-progress {
+        width: 100%;
+        height: 6px;
+        background: rgba(0, 0, 0, 0.08);
+        border-radius: 999px;
+        overflow: hidden;
+        margin-top: 8px;
+        display: none;
+      }
+      .sync-progress.show {
+        display: block;
+      }
+      .sync-progress > div {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        transition: width 0.25s ease;
+      }
+
+      /* ── Button loading state ──────────────────── */
+      .filter-select.is-loading,
+      .is-loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.7;
+      }
+      .filter-select.is-loading::after,
+      .is-loading::after {
+        content: "";
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        width: 14px;
+        height: 14px;
+        margin-top: -7px;
+        border-radius: 50%;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* small badge style you already use, reused for “Synced” badge if needed */
+      .device-chip.success {
+        background: rgba(16, 185, 129, 0.15);
+        border-color: rgba(16, 185, 129, 0.35);
+        color: #065f46;
+      }
+      .device-chip.error {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.35);
+        color: #7f1d1d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header with back button -->
+      <header>
+        <div>
+          <a href="dashboard.html" class="back-button">
+            <i class="fas fa-arrow-left"></i>
+            Back to Dashboard
+          </a>
+          <h1>Session Records</h1>
+          <p style="color: rgba(255, 255, 255, 0.8)">
+            Track your therapy progress
+          </p>
+        </div>
+
+        <br />
+
+        <div
+          id="syncBanner"
+          class="sync-banner"
+          role="status"
+          aria-live="polite"
+        >
+          <i id="syncBannerIcon" class="sync-icon fas fa-cloud-upload-alt"></i>
+          <span id="syncBannerText">Preparing sync…</span>
+        </div>
+        <div id="syncProgress" class="sync-progress" aria-hidden="true">
+          <div id="syncProgressBar"></div>
+        </div>
+      </header>
+
+      <!-- Stats Overview -->
+      <div class="stats-scroll-container">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <p class="stat-label">Total Sessions</p>
+            <p class="stat-value" id="totalSessions">0</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Best Score</p>
+            <p class="stat-value" id="bestScore">0</p>
+          </div>
+          <div
+            class="stat-card result-card"
+            onclick="window.location.href='history.html'"
+          >
+            <p class="stat-label">Click To See Your Result</p>
+            <p class="stat-value">
+              View Details
+              <i
+                class="fas fa-chevron-right"
+                style="font-size: 0.8em; margin-left: 5px"
+              ></i>
+            </p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Recent Mode</p>
+            <p class="stat-value" id="recentMode">-</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Avg. Duration</p>
+            <p class="stat-value" id="avgDuration">0m</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Records Table -->
+      <div class="records-container">
+        <div class="records-header">
+          <h2 class="records-title">Your Session History</h2>
+          <div class="filter-controls">
+            <div class="filter-select-wrapper">
+              <select id="filterMode" class="filter-select">
+                <option value="all">All Modes</option>
+                <option value="grip">Grip Mode</option>
+                <option value="game">Game Mode</option>
+                <option value="normal">Normal Mode</option>
+                <option value="speech">Speech Mode</option>
+              </select>
+            </div>
+            <button id="sortDateBtn" class="filter-select">
+              <i class="fas fa-sort"></i> Date
+            </button>
+            <button id="exportCsvBtn" class="filter-select">
+              <i class="fas fa-file-export"></i> Export CSV
+            </button>
+            <button id="syncSheetsBtn" class="filter-select">
+              <i class="fas fa-cloud-upload-alt"></i> Sync to Google Sheets
+            </button>
+            <button id="syncAllBtn" class="filter-select">
+              <i class="fas fa-cloud-upload"></i> Sync ALL Sessions
+            </button>
+            <button id="testConnectionBtn" class="filter-select">
+              <i class="fas fa-plug"></i> Test Connection
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="recordsContainer"
+          class="divide-y divide-gray-100 divide-opacity-20"
+        >
+          <!-- Records injected by JS -->
+          <div class="empty-state">
+            <i class="fas fa-gamepad empty-icon"></i>
+            <p>No session records yet. Complete your first session!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // UI refs
+      const _sb = () => document.getElementById("syncBanner");
+      const _sbi = () => document.getElementById("syncBannerIcon");
+      const _sbt = () => document.getElementById("syncBannerText");
+      const _sp = () => document.getElementById("syncProgress");
+      const _spb = () => document.getElementById("syncProgressBar");
+
+      function syncUI_start(total = 0) {
+        const b = _sb(),
+          i = _sbi(),
+          t = _sbt(),
+          p = _sp(),
+          pb = _spb();
+        b.className = "sync-banner show";
+        i.className = "sync-icon fas fa-cloud-upload-alt";
+        t.textContent = total > 0 ? `Syncing ${total} session(s)…` : "Syncing…";
+        p.className = "sync-progress show";
+        pb.style.width = "0%";
+      }
+
+      function syncUI_step(done, total) {
+        const pb = _spb(),
+          t = _sbt();
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        pb.style.width = pct + "%";
+        t.textContent = `Syncing ${done}/${total} session(s)…`;
+      }
+
+      function syncUI_success(done, total) {
+        const b = _sb(),
+          i = _sbi(),
+          t = _sbt(),
+          p = _sp();
+        b.className = "sync-banner show success";
+        i.className = "sync-icon fas fa-check";
+        t.textContent = `Synced ${done}/${total} session(s) successfully.`;
+        p.className = "sync-progress"; // hide bar
+        setTimeout(() => {
+          b.className = "sync-banner";
+        }, 1800);
+      }
+
+      function syncUI_error(message = "Sync failed.") {
+        const b = _sb(),
+          i = _sbi(),
+          t = _sbt(),
+          p = _sp();
+        b.className = "sync-banner show error";
+        i.className = "sync-icon fas fa-triangle-exclamation";
+        t.textContent = message;
+        p.className = "sync-progress"; // hide bar
+        // keep visible; click to dismiss
+        b.onclick = () => {
+          b.className = "sync-banner";
+          b.onclick = null;
+        };
+      }
+
+      function btnLoading(btn, on) {
+        if (!btn) return;
+        if (on) btn.classList.add("is-loading");
+        else btn.classList.remove("is-loading");
+      }
+      /* =========================================================
+               App + Device identity (used in every record + sync)
+            ========================================================== */
+      const APP_VERSION = "NF-Sessions/1.0.0";
+      const APP_SOURCE = location.hostname || "local";
+
+      function getOrCreateDeviceId() {
+        const KEY = "nf_deviceId";
+        let id = localStorage.getItem(KEY);
+        if (!id) {
+          if (crypto && crypto.randomUUID) {
+            id = crypto.randomUUID();
+          } else {
+            id =
+              "dev-" +
+              Math.random().toString(36).slice(2) +
+              Date.now().toString(36);
+          }
+          localStorage.setItem(KEY, id);
+        }
+        return id;
+      }
+
+      const AUTO_SYNC_ON_LOAD = true; // set to false to disable auto-sync
+
+      // --- storage helpers ---
+
+      // ---------- Dedupe helpers (local) ----------
+      function sessionFingerprintBase(s) {
+        // same parts you already use for sessionKey
+        return [
+          s.username || "guest",
+          s.date || "",
+          s.mode || "",
+          s.game || "",
+          s.score ?? 0,
+          s.duration ?? 0,
+          s.deviceId || "",
+        ].join("|");
+      }
+      function sessionKey(s) {
+        return sessionFingerprintBase(s);
+      } // keep your existing name
+
+      function getSyncedKeySet() {
+        try {
+          const raw = localStorage.getItem("nf_syncedKeys") || "[]";
+          return new Set(JSON.parse(raw));
+        } catch {
+          return new Set();
+        }
+      }
+      function saveSyncedKeySet(set) {
+        localStorage.setItem("nf_syncedKeys", JSON.stringify([...set]));
+      }
+      function addSyncedKey(key) {
+        const set = getSyncedKeySet();
+        if (!set.has(key)) {
+          set.add(key);
+          saveSyncedKeySet(set);
+        }
+      }
+      function isSyncedKey(key) {
+        return getSyncedKeySet().has(key);
+      }
+
+      // Compare dates in Asia/Bangkok local day
+      function ymdLocal(d, tz = "Asia/Bangkok") {
+        const f = new Intl.DateTimeFormat("en-CA", {
+          timeZone: tz,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        });
+        return f.format(d);
+      }
+      function isToday(dateStr) {
+        if (!dateStr) return false;
+        const today = ymdLocal(new Date());
+        const that = ymdLocal(new Date(dateStr));
+        return today === that;
+      }
+      function getSessions() {
+        return JSON.parse(localStorage.getItem("therapySessions") || "[]");
+      }
+      function setSessions(arr) {
+        localStorage.setItem("therapySessions", JSON.stringify(arr));
+      }
+
+      // Create a stable key for a session (works for old records too)
+      function sessionKey(s) {
+        return [
+          s.username || "guest",
+          s.date || "",
+          s.mode || "",
+          s.game || "",
+          s.score ?? 0,
+          s.duration ?? 0,
+          s.deviceId || "", // include device if present
+        ].join("|");
+      }
+
+      function markSessionSynced(target) {
+        const all = getSessions();
+        const targetKey = sessionKey(target);
+        let changed = false;
+
+        for (const s of all) {
+          if (sessionKey(s) === targetKey) {
+            s.synced = true;
+            s.syncedAt = new Date().toISOString();
+            changed = true;
+          }
+        }
+        if (changed) setSessions(all);
+      }
+
+      function parseUA() {
+        const ua = navigator.userAgent || "";
+        const platform = navigator.platform || "";
+        // Basic browser
+        let browser = "Unknown";
+        if (ua.includes("Edg/")) browser = "Edge";
+        else if (ua.includes("OPR/") || ua.includes("Opera")) browser = "Opera";
+        else if (ua.includes("Chrome/")) browser = "Chrome";
+        else if (ua.includes("Safari/")) browser = "Safari";
+        else if (ua.includes("Firefox/")) browser = "Firefox";
+
+        // Basic OS
+        let os = "Unknown";
+        if (/Windows/i.test(ua)) os = "Windows";
+        else if (/Android/i.test(ua)) os = "Android";
+        else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+        else if (/Mac OS X|Macintosh/i.test(ua)) os = "macOS";
+        else if (/Linux/i.test(ua)) os = "Linux";
+
+        return { browser, os, ua, platform };
+      }
+
+      function getDeviceInfo() {
+        const { browser, os, ua, platform } = parseUA();
+        const deviceId = getOrCreateDeviceId();
+        const deviceLabel = `${os} • ${browser}`;
+        const cores = navigator.hardwareConcurrency || 0;
+        const memoryGB = navigator.deviceMemory || 0;
+        const screenSize = window.screen
+          ? `${screen.width}x${screen.height}`
+          : "unknown";
+        const language = navigator.language || "unknown";
+
+        return {
+          deviceId,
+          deviceLabel,
+          browser,
+          os,
+          ua,
+          platform,
+          cores,
+          memoryGB,
+          screen: screenSize,
+          language,
+          appVersion: APP_VERSION,
+          appSource: APP_SOURCE,
+        };
+      }
+
+      /* =========================================================
+               DOM refs
+            ========================================================== */
+      const recordsContainer = document.getElementById("recordsContainer");
+      const filterMode = document.getElementById("filterMode");
+      const sortDateBtn = document.getElementById("sortDateBtn");
+      const totalSessionsEl = document.getElementById("totalSessions");
+      const bestScoreEl = document.getElementById("bestScore");
+      const recentModeEl = document.getElementById("recentMode");
+      const avgDurationEl = document.getElementById("avgDuration");
+
+      document
+        .getElementById("exportCsvBtn")
+        .addEventListener("click", exportToCSV);
+
+      /* =========================================================
+               Init
+            ========================================================== */
+      document.addEventListener("DOMContentLoaded", () => {
+        // --- one-time init only ---
+        const saved = localStorage.getItem("therapySessions");
+        let sessions = [];
+        if (saved) {
+          sessions = JSON.parse(saved);
+          // migration
+          let patched = false;
+          sessions.forEach((s) => {
+            if (s.game === "Flappy Bird" || s.game === "Grip Therapy") {
+              s.game = "Grip Mode";
+              s.mode = "grip";
+              patched = true;
+            }
+            if (s.game === "Squat Tracker") {
+              s.game = "Normal Mode";
+              s.mode = "normal";
+              patched = true;
+            }
+            if (s.game === "Memory Match") {
+              s.game = "Game Mode";
+              s.mode = "game";
+              patched = true;
+            }
+            if (s.game === "Speech Therapy") {
+              s.game = "Speech Mode";
+              s.mode = "speech";
+              patched = true;
+            }
+          });
+          if (patched)
+            localStorage.setItem("therapySessions", JSON.stringify(sessions));
+          sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
+        const currentUser = localStorage.getItem("nf_loggedInUser") || "guest";
+        const userSessions = sessions.filter(
+          (s) => !s.username || s.username === currentUser
+        );
+
+        renderSessions(userSessions);
+        updateStats(userSessions);
+
+        // auto-sync today's only
+        if (AUTO_SYNC_ON_LOAD) {
+          sendAllSessionsToSheets(currentUser, {
+            onStart: (total) => syncUI_start(total),
+            onStep: (done, total /*, ok*/) => syncUI_step(done, total),
+            onSuccess: (done, total) => syncUI_success(done, total),
+            onError: (msg) => syncUI_error(msg),
+          }).then(() => {
+            const refreshed = getSessions().filter(
+              (s) => !s.username || s.username === currentUser
+            );
+            renderSessions(refreshed);
+          });
+        }
+
+        // wire the Test Connection button (you were missing this)
+        // Replace the existing testBtn listener with this:
+        const testBtn = document.getElementById("testConnectionBtn");
+        if (testBtn) {
+          testBtn.addEventListener("click", async () => {
+            try {
+              const r = await fetch(`${WEB_APP_URL}?tail=5`, {
+                method: "GET",
+                cache: "no-store",
+              });
+              const t = await r.text();
+              alert(t); // quick view
+              console.log("TAIL:", t); // full JSON in console
+            } catch (e) {
+              alert("Tail failed: " + (e?.message || e));
+            }
+          });
+        }
+      });
+      /* =========================================================
+               UI events
+            ========================================================== */
+      filterMode.addEventListener("change", () => {
+        const sessions = JSON.parse(
+          localStorage.getItem("therapySessions") || "[]"
+        );
+        const currentUser = localStorage.getItem("nf_loggedInUser") || "guest";
+        const userSessions = sessions.filter(
+          (s) => !s.username || s.username === currentUser
+        );
+        renderSessions(userSessions);
+      });
+
+      sortDateBtn.addEventListener("click", () => {
+        const stored = localStorage.getItem("therapySessions");
+        if (!stored) return;
+        const currentUser = localStorage.getItem("nf_loggedInUser") || "guest";
+        let sessions = JSON.parse(stored).filter(
+          (s) => !s.username || s.username === currentUser
+        );
+
+        if (sortDateBtn.dataset.sort === "desc") {
+          sessions.sort((a, b) => new Date(a.date) - new Date(b.date));
+          sortDateBtn.dataset.sort = "asc";
+          sortDateBtn.innerHTML = '<i class="fas fa-sort-amount-up"></i> Date';
+        } else {
+          sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+          sortDateBtn.dataset.sort = "desc";
+          sortDateBtn.innerHTML =
+            '<i class="fas fa-sort-amount-down"></i> Date';
+        }
+        renderSessions(sessions);
+      });
+
+      /* =========================================================
+               Rendering
+            ========================================================== */
+      function renderSessions(sessions) {
+        const filterValue = filterMode.value;
+        let filteredSessions = sessions;
+
+        if (filterValue !== "all") {
+          filteredSessions = sessions.filter(
+            (session) => session.mode === filterValue
+          );
+        }
+
+        if (filteredSessions.length === 0) {
+          recordsContainer.innerHTML = `
+                  <div class="empty-state">
+                    <i class="fas fa-search empty-icon"></i>
+                    <p>No sessions found for this filter.</p>
+                  </div>`;
+          return;
+        }
+
+        recordsContainer.innerHTML = filteredSessions
+          .map((session) => {
+            const deviceLabel =
+              session.deviceLabel ||
+              (session.device && session.device.deviceLabel) ||
+              "Unknown device";
+            const deviceIcon = session.device?.os
+              ?.toLowerCase()
+              .includes("android")
+              ? "fa-robot"
+              : session.device?.os?.toLowerCase().includes("ios")
+              ? "fa-mobile-screen"
+              : "fa-desktop";
+            return `
+                  <div class="record-item">
+                    <div class="record-content">
+                      <div class="record-info">
+                        <div class="record-icon ${getModeClass(session.mode)}">
+                          ${getModeIcon(session.mode)}
+                        </div>
+                        <div class="record-details">
+                          <h3>${session.game}</h3>
+                          <div class="record-meta">
+                            <span class="record-mode ${getModeClass(
+                              session.mode
+                            )}">
+                              ${capitalizeFirstLetter(session.mode)} Mode
+                            </span>
+                            ${
+                              session.difficulty
+                                ? `<span class="record-difficulty">${capitalizeFirstLetter(
+                                    session.difficulty
+                                  )}</span>`
+                                : ""
+                            }
+                            ${
+                              session.duration
+                                ? `<span>${formatDuration(
+                                    session.duration
+                                  )}</span>`
+                                : ""
+                            }
+                            <span class="device-chip" title="${
+                              session.deviceUA || ""
+                            }">
+                              <i class="fas ${deviceIcon}"></i>
+                              ${deviceLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="record-stats">
+                        <p class="record-date">${formatDate(session.date)}</p>
+                        ${
+                          session.score
+                            ? `<p class="record-score">Score: ${session.score}</p>`
+                            : ""
+                        }
+                      </div>
+                    </div>
+                  </div>
+                `;
+          })
+          .join("");
+      }
+
+      function updateStats(sessions) {
+        totalSessionsEl.textContent = sessions.length;
+
+        if (sessions.length > 0) {
+          const gripSessions = sessions.filter((s) => s.mode === "grip");
+          const otherSessions = sessions.filter((s) => s.mode !== "grip");
+
+          const bestGripScore =
+            gripSessions.length > 0
+              ? Math.max(...gripSessions.map((s) => s.score || 0))
+              : 0;
+
+          const bestDuration =
+            otherSessions.length > 0
+              ? Math.max(...otherSessions.map((s) => s.duration || 0))
+              : 0;
+
+          bestScoreEl.textContent =
+            bestGripScore > 0
+              ? bestGripScore
+              : `${formatDuration(bestDuration)}`;
+          recentModeEl.textContent =
+            sessions[0].game || capitalizeFirstLetter(sessions[0].mode);
+
+          const totalDuration = sessions.reduce(
+            (sum, s) => sum + (s.duration || 0),
+            0
+          );
+          avgDurationEl.textContent = formatDuration(
+            Math.round(totalDuration / sessions.length)
+          );
+        } else {
+          bestScoreEl.textContent = "0";
+          recentModeEl.textContent = "-";
+          avgDurationEl.textContent = "0m";
+        }
+      }
+
+      /* =========================================================
+               Helpers
+            ========================================================== */
+      function capitalizeFirstLetter(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+      }
+      function formatDate(dateString) {
+        const opts = { year: "numeric", month: "short", day: "numeric" };
+        return new Date(dateString).toLocaleDateString(undefined, opts);
+      }
+      function getModeClass(mode) {
+        return `mode-${mode}`;
+      }
+      function getModeIcon(mode) {
+        const icons = {
+          grip: '<i class="fas fa-hand-paper"></i>',
+          game: '<i class="fas fa-gamepad"></i>',
+          normal: '<i class="fas fa-heartbeat"></i>',
+          speech: '<i class="fas fa-comment-dots"></i>',
+        };
+        return icons[mode] || '<i class="fas fa-question"></i>';
+      }
+      function formatDuration(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        if (m === 0) return `${s}s`;
+        if (s === 0) return `${m}m`;
+        return `${m}m ${s}s`;
+      }
+
+      /* =========================================================
+               CSV export (now includes device info)
+            ========================================================== */
+      function exportToCSV() {
+        const sessions = JSON.parse(
+          localStorage.getItem("therapySessions") || "[]"
+        );
+        if (sessions.length === 0) {
+          alert("No session data to export!");
+          return;
+        }
+
+        let csv =
+          [
+            "Date",
+            "Username",
+            "Mode",
+            "Game",
+            "Score",
+            "Duration (s)",
+            "Device ID",
+            "Device Label",
+            "Browser",
+            "OS",
+            "Platform",
+            "Cores",
+            "Memory(GB)",
+            "Screen",
+            "Language",
+            "App Version",
+            "App Source",
+          ].join(",") + "\n";
+
+        sessions.forEach((s) => {
+          const d = s.device || {}; // back-compat
+          const row = [
+            s.date || "",
+            s.username || "guest",
+            s.mode || "",
+            s.game || "",
+            s.score ?? "",
+            s.duration ?? "",
+            s.deviceId || d.deviceId || "",
+            s.deviceLabel || d.deviceLabel || "",
+            d.browser || "",
+            d.os || "",
+            d.platform || "",
+            d.cores ?? "",
+            d.memoryGB ?? "",
+            d.screen || "",
+            d.language || "",
+            d.appVersion || "",
+            d.appSource || "",
+          ]
+            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+            .join(",");
+          csv += row + "\n";
+        });
+
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "therapy_sessions.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      /* =========================================================
+               Google Sheets integration (now sends device info)
+            ========================================================== */
+
+      // Replace with your Google Apps Script Web App URL
+      const WEB_APP_URL =
+        "https://script.google.com/macros/s/AKfycbxqTuD_y71PZsaHRi66ql8dvJskJNkkZYH4eFjtqOEmh1hrFlEyqbTOfeGUFW6jdTzG/exec";
+
+      async function syncToGoogleSheets() {
+        const sessions = JSON.parse(
+          localStorage.getItem("therapySessions") || "[]"
+        );
+        if (sessions.length === 0) {
+          alert("No sessions to sync!");
+          return;
+        }
+        const success = await sendSessionToSheets(sessions[0]); // single latest
+        alert(
+          success ? "Synced latest session to Google Sheets!" : "Failed to sync"
+        );
+      }
+
+      const syncLatestBtn = document.getElementById("syncSheetsBtn");
+      const syncAllBtn = document.getElementById("syncAllBtn");
+
+      if (syncAllBtn) {
+        syncAllBtn.addEventListener("click", async () => {
+          const currentUser =
+            localStorage.getItem("nf_loggedInUser") || "guest";
+          await sendAllSessionsToSheets(currentUser, {
+            triggerBtn: syncAllBtn,
+            onStart: (total) => syncUI_start(total),
+            onStep: (done, total, ok) => syncUI_step(done, total),
+            onSuccess: (done, total) => syncUI_success(done, total),
+            onError: (msg) => syncUI_error(msg),
+          });
+          const refreshed = getSessions().filter(
+            (s) => !s.username || s.username === currentUser
+          );
+          renderSessions(refreshed);
+        });
+      }
+
+      if (syncLatestBtn) {
+        syncLatestBtn.addEventListener("click", async () => {
+          const all = getSessions();
+          const currentUser =
+            localStorage.getItem("nf_loggedInUser") || "guest";
+
+          // ✅ pick only today's unsynced sessions
+          const pendingToday = all.filter(
+            (s) =>
+              (!s.username || s.username === currentUser) &&
+              !s.synced &&
+              isToday(s.date)
+          );
+
+          syncUI_start(pendingToday.length ? 1 : 0);
+          btnLoading(syncLatestBtn, true);
+          try {
+            if (pendingToday.length === 0) {
+              syncUI_error("No sessions from today to sync.");
+              return;
+            }
+            const ok = await sendSessionToSheets(pendingToday[0]);
+            if (ok) syncUI_success(1, 1);
+            else syncUI_error("Failed to sync latest session.");
+          } finally {
+            btnLoading(syncLatestBtn, false);
+            const refreshed = getSessions().filter(
+              (s) => !s.username || s.username === currentUser
+            );
+            renderSessions(refreshed);
+          }
+        });
+      }
+
+      async function warmupAppsScript() {
+        try {
+          const r = await fetch(WEB_APP_URL + "?ping=1", {
+            method: "GET",
+            cache: "no-store",
+          });
+          // don't block on parsing; just touching /exec warms cold start
+          await r.text();
+        } catch {}
+      }
+
+      async function sendSessionToSheets(session) {
+        const username = localStorage.getItem("nf_loggedInUser") || "guest";
+        const device = getDeviceInfo();
+
+        // build the same key the server will use
+        const key = sessionKey({
+          ...session,
+          username,
+          deviceId: device.deviceId,
+        });
+
+        // short-circuit if we know we've already synced this key
+        if (session.synced === true || isSyncedKey(key)) {
+          // still mark it locally so UI stays consistent
+          markSessionSynced({
+            ...session,
+            username,
+            deviceId: device.deviceId,
+          });
+          return { ok: true, message: "already-synced-local" };
+        }
+
+        const payload = {
+          key, // <—— include the key!
+          username,
+          date: session.date,
+          mode: session.mode || "unknown",
+          game: session.game || "unknown",
+          score: session.score || 0,
+          duration: session.duration || 0,
+          difficulty: session.difficulty || "",
+          deviceId: device.deviceId,
+          deviceLabel: device.deviceLabel,
+          browser: device.browser,
+          os: device.os,
+          deviceUA: device.ua,
+          platform: device.platform,
+          cores: device.cores,
+          memoryGB: device.memoryGB,
+          screen: device.screen,
+          language: device.language,
+          appVersion: device.appVersion,
+          appSource: device.appSource,
+        };
+
+        // (optional) warmup
+        await warmupAppsScript();
+
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 30000);
+
+        try {
+          const res = await fetch(WEB_APP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload),
+            signal: ctrl.signal,
+          });
+          clearTimeout(timer);
+
+          const txt = await res.text();
+          let json = null;
+          try {
+            json = JSON.parse(txt);
+          } catch {}
+
+          if (!res.ok) {
+            return {
+              ok: false,
+              message: json?.message || txt || `HTTP ${res.status}`,
+            };
+          }
+
+          // Server can reply success OR duplicate
+          if (json?.status === "success" || json?.status === "duplicate") {
+            addSyncedKey(key);
+            markSessionSynced({
+              ...session,
+              username,
+              deviceId: device.deviceId,
+            });
+            return { ok: true, message: json?.status };
+          }
+
+          return {
+            ok: false,
+            message: json?.message || "Unknown server response",
+          };
+        } catch (e) {
+          clearTimeout(timer);
+          return { ok: false, message: e?.message || String(e) };
+        }
+      }
+
+      // Batch sync for current user
+      async function sendAllSessionsToSheets(username, opts = {}) {
+        const { onStart, onStep, onSuccess, onError, triggerBtn } = opts;
+        try {
+          btnLoading(triggerBtn, true);
+
+          const all = getSessions();
+          const userSessions = all.filter(
+            (s) => !s.username || s.username === username
+          );
+          const pending = userSessions.filter(
+            (s) =>
+              !s.synced &&
+              isToday(s.date) &&
+              !isSyncedKey(
+                sessionKey({
+                  ...s,
+                  username,
+                  deviceId: s.deviceId || getDeviceInfo().deviceId,
+                })
+              )
+          );
+
+          onStart && onStart(pending.length);
+
+          if (pending.length === 0) {
+            onError && onError("No sessions from today to sync.");
+            return true;
+          }
+
+          let successCount = 0,
+            step = 0,
+            firstError = null;
+          for (const s of pending) {
+            const res = await sendSessionToSheets(s);
+            step++;
+            onStep && onStep(step, pending.length, res.ok);
+            if (res.ok) successCount++;
+            else if (!firstError) firstError = res.message;
+            await new Promise((r) => setTimeout(r, 200));
+          }
+
+          if (successCount === pending.length) {
+            onSuccess && onSuccess(successCount, pending.length);
+            return true;
+          } else {
+            onError &&
+              onError(
+                firstError
+                  ? `Failed: ${firstError}`
+                  : `Synced ${successCount}/${pending.length}. Some sessions failed.`
+              );
+            return false;
+          }
+        } catch (e) {
+          onError && onError(`Sync error: ${e.message || e}`);
+          return false;
+        } finally {
+          btnLoading(triggerBtn, false);
+        }
+      }
+
+      /* =========================================================
+               Save session (injects device info into each local record)
+            ========================================================== */
+      function saveSession(sessionData) {
+        const username = localStorage.getItem("nf_loggedInUser") || "guest";
+        const allSessions = getSessions();
+        const device = getDeviceInfo();
+
+        const newSession = {
+          ...sessionData,
+          username,
+          deviceId: device.deviceId,
+          deviceLabel: device.deviceLabel,
+          deviceUA: device.ua,
+          device, // keep full device object
+          synced: false, // mark as not yet synced
+          syncedAt: null,
+        };
+
+        allSessions.unshift(newSession);
+        setSessions(allSessions);
+
+        // Try to sync immediately
+        sendSessionToSheets(newSession);
+
+        const userSessions = allSessions.filter(
+          (s) => !s.username || s.username === username
+        );
+        renderSessions(userSessions);
+        updateStats(userSessions);
+      }
+      /* =========================================================
+               Secondary init for current user view on reload
+            ========================================================== */
+
+      /* =========================================================
+               Test helper (optional)
+            ========================================================== */
+      function addTestSession() {
+        const testSession = {
+          date: new Date().toISOString(),
+          mode: "game",
+          game: "Test Game",
+          score: 100,
+          duration: 120,
+          difficulty: "easy",
+          username: localStorage.getItem("nf_loggedInUser") || "guest",
+        };
+        const sessions = JSON.parse(
+          localStorage.getItem("therapySessions") || "[]"
+        );
+        sessions.unshift(testSession);
+        localStorage.setItem("therapySessions", JSON.stringify(sessions));
+        location.reload();
+      }
+      // addTestSession(); // uncomment to generate one
+
+      function debugPendingToday() {
+        const currentUser = localStorage.getItem("nf_loggedInUser") || "guest";
+        const all = JSON.parse(localStorage.getItem("therapySessions") || "[]");
+        const pending = all.filter(
+          (s) => (!s.username || s.username === currentUser) && !s.synced
+        );
+        const pendingToday = pending.filter((s) => isToday(s.date));
+        console.table(
+          pendingToday.map((s) => ({
+            date: s.date,
+            mode: s.mode,
+            game: s.game,
+            score: s.score,
+            synced: s.synced,
+          }))
+        );
+        alert(`Pending today: ${pendingToday.length}`);
+      }
+
+      // TEMP: call once on load to see the count
+      document.addEventListener("DOMContentLoaded", () => {
+        debugPendingToday();
+      });
+
+      document
+        .getElementById("forceWriteBtn")
+        ?.addEventListener("click", forceWriteNow);
+
+      async function forceWriteNow() {
+        // Build a minimal test payload
+        const device = getDeviceInfo();
+        const payload = {
+          username: localStorage.getItem("nf_loggedInUser") || "guest",
+          date: new Date().toISOString(),
+          mode: "game",
+          game: "ForceWrite Test",
+          score: 123,
+          duration: 45,
+          difficulty: "easy",
+          deviceId: device.deviceId,
+          deviceLabel: device.deviceLabel,
+          browser: device.browser,
+          os: device.os,
+          deviceUA: device.ua,
+          platform: device.platform,
+          cores: device.cores,
+          memoryGB: device.memoryGB,
+          screen: device.screen,
+          language: device.language,
+          appVersion: device.appVersion,
+          appSource: device.appSource,
+        };
+
+        // Warmup (optional)
+        try {
+          await fetch(WEB_APP_URL + "?ping=1", {
+            method: "GET",
+            cache: "no-store",
+          });
+        } catch {}
+
+        // 20s timeout
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 20000);
+
+        try {
+          const res = await fetch(WEB_APP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload),
+            signal: ctrl.signal,
+          });
+          clearTimeout(timer);
+
+          const text = await res.text();
+          let json = null;
+          try {
+            json = JSON.parse(text);
+          } catch {}
+          if (!res.ok || json?.status !== "success") {
+            alert(
+              "Write failed: " + (json?.message || text || `HTTP ${res.status}`)
+            );
+            console.error("Write failed:", text);
+            return;
+          }
+
+          alert(`Wrote row ${json.lastRow} on sheet "${json.sheet}"`);
+          console.log(
+            "WROTE TO:",
+            json.spreadsheetUrl,
+            "Sheet:",
+            json.sheet,
+            "Row:",
+            json.lastRow,
+            "Preview:",
+            json.preview
+          );
+
+          // Open the sheet to the correct file (optional)
+          // window.open(json.spreadsheetUrl, "_blank");
+        } catch (e) {
+          clearTimeout(timer);
+          alert("Network error: " + (e?.message || e));
+        }
+      }
+    </script>
+  </body>
+</html>

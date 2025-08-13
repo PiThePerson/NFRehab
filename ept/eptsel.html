@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Select Exercise - Normal Mode</title>
+
+    <!-- external stylesheet -->
+    <link rel="stylesheet" href="../css/main.css" />
+
+    <!-- Font-Awesome icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+
+    <!-- INLINE FIX : make every .select-input (select OR input) identical in size -->
+    <style>
+      /* ────────── Input + Select Fields ────────── */
+      .select-input,
+      input.select-input {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 1rem;
+        background-color: #ffffff;
+        box-sizing: border-box;
+        margin-bottom: 1rem;
+      }
+
+      .select-label {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        display: block;
+        color: #333;
+      }
+
+      /* ────────── Header Layout ────────── */
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1.5rem;
+        margin-bottom: 2rem;
+        position: relative;
+      }
+
+      header h1 {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 1.75rem;
+        margin: 0;
+        font-weight: bold;
+        color: white;
+      }
+
+      /* ────────── Selection Card ────────── */
+      .selection-card {
+        background: #ffffff;
+        padding: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+        margin: 0 auto 3rem auto;
+      }
+
+      /* ────────── Start Button ────────── */
+      .start-btn {
+        background-color: #3b82f6;
+        color: white;
+        font-weight: 600;
+        width: 100%;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 0.75rem;
+        font-size: 1.1rem;
+        transition: background-color 0.3s ease;
+        margin-top: 1rem;
+      }
+
+      .start-btn:hover {
+        background-color: #2563eb;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <header>
+        <a href="/dashboard.html" class="back-button">
+          <i class="fas fa-arrow-left"></i>
+          <span class="translatable" data-key="backToDashboard"
+            >Back to Dashboard</span
+          >
+        </a>
+
+        <h1 class="translatable" data-key="selectExercise">Select Exercise</h1>
+
+        <button class="language-toggle" id="languageToggle">ไทย / EN</button>
+      </header>
+
+      <div class="selection-card">
+        <!-- ───────────────── Exercise ───────────────── -->
+        <label
+          for="exercise"
+          class="select-label translatable"
+          data-key="exerciseLabel"
+        >
+          Exercise
+        </label>
+
+        <select id="exercise" class="select-input">
+          <option value="squat" class="translatable" data-key="squat">
+            Squats
+          </option>
+          <option value="arm_raise" class="translatable" data-key="armRaise">
+            Arm Raises
+          </option>
+          <option value="elbow_flex" class="translatable" data-key="elbowFlex">
+            Elbow Flexions
+          </option>
+          <option
+            value="glute_bridge"
+            class="translatable"
+            data-key="gluteBridge"
+          >
+            Glute Bridge
+          </option>
+          <option value="leg_raise" class="translatable" data-key="legRaise">
+            Leg Raises
+          </option>
+        </select>
+
+        <!-- ───────────────── Angle Threshold ───────────────── -->
+        <label
+          for="threshold"
+          class="select-label translatable"
+          data-key="angleThreshold"
+        >
+          Angle Threshold (°)
+        </label>
+
+        <input
+          type="number"
+          id="threshold"
+          class="select-input"
+          placeholder="e.g., 90"
+        />
+
+        <!-- ───────────────── Repetitions ───────────────── -->
+        <label
+          for="reps"
+          class="select-label translatable"
+          data-key="repetitions"
+        >
+          Repetitions
+        </label>
+
+        <input
+          type="number"
+          id="reps"
+          class="select-input"
+          placeholder="e.g., 10"
+        />
+
+        <!-- ───────────────── Tutorial choice ───────────────── -->
+        <label
+          for="tutorial"
+          class="select-label translatable"
+          data-key="tutorialQuestion"
+        >
+          Would you like a tutorial?
+        </label>
+
+        <select id="tutorial" class="select-input">
+          <option value="yes" class="translatable" data-key="yes">Yes</option>
+          <option value="no" selected class="translatable" data-key="no">
+            No
+          </option>
+        </select>
+
+        <!-- ───────────────── Start button ───────────────── -->
+        <button class="start-btn" onclick="startExercise()">
+          <span class="translatable" data-key="startExercise"
+            >Start Exercise</span
+          >
+        </button>
+      </div>
+    </div>
+
+    <!-- ──────────────── Script ──────────────── -->
+    <script>
+      /* ===== LANGUAGE TOGGLE FUNCTIONALITY ===== */
+      const translations = {
+        en: {
+          backToDashboard: "Back to Dashboard",
+          selectExercise: "Select Exercise",
+          exerciseLabel: "Exercise",
+          squat: "Squats",
+          armRaise: "Arm Raises",
+          elbowFlex: "Elbow Flexions",
+          gluteBridge: "Glute Bridge",
+          legRaise: "Leg Raises",
+          angleThreshold: "Angle Threshold (°)",
+          repetitions: "Repetitions",
+          tutorialQuestion: "Would you like a tutorial?",
+          yes: "Yes",
+          no: "No",
+          startExercise: "Start Exercise",
+          validationAlert: "Please fill out all fields.",
+        },
+        th: {
+          backToDashboard: "กลับไปที่แดชบอร์ด",
+          selectExercise: "เลือกการออกกำลังกาย",
+          exerciseLabel: "การออกกำลังกาย",
+          squat: "การ squat",
+          armRaise: "การยกแขน",
+          elbowFlex: "การงอข้อศอก",
+          gluteBridge: "การสะพานกลูต",
+          legRaise: "การยกขา",
+          angleThreshold: "มุมเป้าหมาย (°)",
+          repetitions: "จำนวนครั้ง",
+          tutorialQuestion: "ต้องการการสอนใช้งานหรือไม่?",
+          yes: "ใช่",
+          no: "ไม่",
+          startExercise: "เริ่มออกกำลังกาย",
+          validationAlert: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
+        },
+      };
+
+      // Function to change language
+      function changeLanguage(lang) {
+        // Update html lang attribute
+        document.documentElement.lang = lang;
+
+        // Update all translatable elements
+        document.querySelectorAll(".translatable").forEach((element) => {
+          const key = element.getAttribute("data-key");
+          if (translations[lang] && translations[lang][key]) {
+            element.textContent = translations[lang][key];
+          }
+        });
+
+        // Save language preference
+        localStorage.setItem("nf_language", lang);
+      }
+
+      // Language toggle button event
+      document
+        .getElementById("languageToggle")
+        .addEventListener("click", function () {
+          const currentLang = document.documentElement.lang;
+          const newLang = currentLang === "en" ? "th" : "en";
+          changeLanguage(newLang);
+          this.textContent = newLang === "en" ? "ไทย / EN" : "TH / English";
+        });
+
+      // Initialize language when page loads
+      document.addEventListener("DOMContentLoaded", function () {
+        const savedLang = localStorage.getItem("nf_language") || "en";
+        changeLanguage(savedLang);
+        document.getElementById("languageToggle").textContent =
+          savedLang === "en" ? "ไทย / EN" : "TH / English";
+      });
+
+      function startExercise() {
+        /* read values */
+        const exercise = document.getElementById("exercise").value;
+        const threshold = parseInt(
+          document.getElementById("threshold").value,
+          10
+        );
+        const reps = parseInt(document.getElementById("reps").value, 10);
+        const tutorial = document.getElementById("tutorial").value;
+
+        /* validation */
+        if (!exercise || isNaN(threshold) || isNaN(reps)) {
+          const currentLang = document.documentElement.lang;
+          alert(translations[currentLang].validationAlert);
+          return;
+        }
+
+        /* Create exercise-specific configuration */
+        const exerciseConfig = {
+          exercise: exercise,
+          threshold: threshold,
+          reps: reps,
+          tutorial: tutorial === "yes",
+          // Common settings
+          trackingPoints: [],
+          // Default values
+          elbowSettings: {},
+          squatSettings: {},
+          armRaiseSettings: {},
+          gluteBridgeSettings: {},
+          legRaiseSettings: {},
+        };
+
+        // Add exercise-specific settings
+        switch (exercise) {
+          case "elbow_flex":
+            exerciseConfig.armSettings = {
+              trackingPoints: ["shoulder", "elbow", "wrist"],
+              targetAngle: threshold,
+              movementPlane: "vertical",
+              arm: "both", // Could be "left", "right", or "both"
+            };
+            break;
+          case "squat":
+            exerciseConfig.squatSettings = {
+              trackingPoints: ["hip", "knee", "ankle"],
+              targetAngle: threshold,
+              depthThreshold: 0.7, // Percentage of full squat
+            };
+            break;
+          case "arm_raise":
+            exerciseConfig.armRaiseSettings = {
+              trackingPoints: ["hip", "shoulder", "wrist"],
+              targetAngle: threshold,
+              movementPlane: "vertical",
+              arm: "both",
+            };
+            break;
+          case "glute_bridge":
+            exerciseConfig.gluteBridgeSettings = {
+              trackingPoints: ["shoulder", "hip", "knee"],
+              targetAngle: threshold,
+              movementPlane: "horizontal",
+            };
+            break;
+          case "leg_raise":
+            exerciseConfig.legRaiseSettings = {
+              trackingPoints: ["hip", "knee", "ankle"],
+              targetAngle: threshold,
+              movementPlane: "vertical",
+            };
+            break;
+        }
+
+        /* persist to localStorage */
+        localStorage.setItem("exerciseMode", JSON.stringify(exerciseConfig));
+
+        /* Determine target page based on exercise */
+        let targetPage;
+        if (tutorial === "yes") {
+          targetPage = "epttutorial.html";
+        } else {
+          // Different pages for different exercises
+          switch (exercise) {
+            case "squat":
+              targetPage = "eptsquat.html";
+              break;
+            case "arm_raise":
+              targetPage = "eptarmraise.html";
+              break;
+            case "elbow_flex":
+              targetPage = "eptelbow.html";
+              break;
+            case "glute_bridge":
+              targetPage = "glu.html";
+              break;
+            case "leg_raise":
+              targetPage = "legs.html";
+              break;
+            default:
+              targetPage = "eptsquat.html"; // default fallback
+          }
+        }
+
+        window.location.href = targetPage;
+      }
+    </script>
+  </body>
+</html>

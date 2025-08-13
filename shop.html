@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neuron Shop</title>
+    <link rel="stylesheet" href="css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .shop-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eee;
+      }
+      .back-button {
+        color: #0d99ff;
+        text-decoration: none;
+        font-size: 1.05rem;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .shop-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #333;
+      }
+      .star-count {
+        font-weight: bold;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .shop-content {
+        flex-grow: 1;
+        overflow-y: auto;
+      }
+      .shop-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+        padding-bottom: 20px;
+      }
+      .item-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+      }
+      .item-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+      .item-image {
+        width: 100%;
+        height: 140px;
+        object-fit: contain;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        background: #f5f5f5;
+      }
+      .item-name {
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #333;
+        font-size: 0.95rem;
+      }
+      .item-cost {
+        color: #ffd700;
+        font-weight: bold;
+        margin-bottom: 12px;
+        font-size: 0.9rem;
+      }
+      .buy-btn {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        width: 100%;
+        font-size: 0.9rem;
+        transition: background 0.3s;
+      }
+      .buy-btn:hover {
+        background: #45a049;
+      }
+      .coming-soon {
+        text-align: center;
+        padding: 30px 0;
+        color: #666;
+        margin-top: 30px;
+        border-top: 1px dashed #ddd;
+      }
+      .equip-btn {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 20px auto;
+        font-size: 1rem;
+        display: block;
+        transition: background 0.3s;
+      }
+      .equip-btn:hover {
+        background: #0b7dda;
+      }
+      .category-title {
+        font-size: 1.2rem;
+        margin: 25px 0 15px;
+        color: #2c3e50;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #eee;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="shop-header">
+        <a href="dashboard.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+        <div class="shop-title">Neuron Shop</div>
+        <div class="star-count">🌟 <span id="starBalance">0</span></div>
+      </div>
+
+      <div class="shop-content">
+        <h3 class="category-title">Card Skins</h3>
+        <div class="shop-grid">
+          <div class="item-card">
+            <img src="images/card1.png" class="item-image" alt="Classic Blue" />
+            <div class="item-name">Classic Blue</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Classic Blue Card Skin', 200, 'images/card1.png')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img
+              src="images/card2.png"
+              class="item-image"
+              alt="Premium Pattern"
+            />
+            <div class="item-name">Premium Pattern</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Premium Pattern Card Skin', 200, 'images/card2.png')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardI.jpg" class="item-image" alt="Moonlight" />
+            <div class="item-name">Moonlight</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Moonlight Card Skin', 200, 'images/cardI.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/TF.jpg" class="item-image" alt="Tech Frame" />
+            <div class="item-name">Tech Frame</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Tech Frame Card Skin', 200, 'images/TF.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardA.jpg" class="item-image" alt="Abstract A" />
+            <div class="item-name">Abstract A</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract A Card Skin', 200, 'images/cardA.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardB.jpg" class="item-image" alt="Abstract B" />
+            <div class="item-name">Abstract B</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract B Card Skin', 200, 'images/cardB.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardC.jpg" class="item-image" alt="Abstract C" />
+            <div class="item-name">Abstract C</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract C Card Skin', 200, 'images/cardC.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardD.jpg" class="item-image" alt="Abstract D" />
+            <div class="item-name">Abstract D</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract D Card Skin', 200, 'images/cardD.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardE.jpg" class="item-image" alt="Abstract E" />
+            <div class="item-name">Abstract E</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract E Card Skin', 200, 'images/cardE.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardF.jpg" class="item-image" alt="Abstract F" />
+            <div class="item-name">Abstract F</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract F Card Skin', 200, 'images/cardF.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardG.jpg" class="item-image" alt="Abstract G" />
+            <div class="item-name">Abstract G</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract G Card Skin', 200, 'images/cardG.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardH.jpg" class="item-image" alt="Abstract H" />
+            <div class="item-name">Abstract H</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract H Card Skin', 200, 'images/cardH.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardJ.jpg" class="item-image" alt="Abstract J" />
+            <div class="item-name">Abstract J</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract J Card Skin', 200, 'images/cardJ.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <img src="images/cardK.jpg" class="item-image" alt="Abstract K" />
+            <div class="item-name">Abstract K</div>
+            <div class="item-cost">200 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Abstract K Card Skin', 200, 'images/cardK.jpg')"
+            >
+              Buy
+            </button>
+          </div>
+        </div>
+
+        <h3 class="category-title">Game Items</h3>
+        <div class="shop-grid">
+          <div class="item-card">
+            <div class="item-name">🃏 Card Sleeve</div>
+            <div class="item-cost">200 Stars</div>
+            <button class="buy-btn" onclick="buyItem('Card Sleeve', 200)">
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <div class="item-name">🏞️ Background Color</div>
+            <div class="item-cost">250 Stars</div>
+            <button class="buy-btn" onclick="buyItem('Background Color', 250)">
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <div class="item-name">🎵 Song Theme</div>
+            <div class="item-cost">500 Stars</div>
+            <button class="buy-btn" onclick="buyItem('Song Theme', 500)">
+              Buy
+            </button>
+          </div>
+        </div>
+
+        <h3 class="category-title">Therapy Sessions</h3>
+        <div class="shop-grid">
+          <div class="item-card">
+            <div class="item-name">🔽 Reduce Reps</div>
+            <div class="item-cost">1000 Stars</div>
+            <button class="buy-btn" onclick="buyItem('Reduce Reps', 1000)">
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <div class="item-name">⭐️ Specialized Therapy</div>
+            <div class="item-cost">5000 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Specialized Therapy', 5000)"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <div class="item-name">🩺 Physical Therapy</div>
+            <div class="item-cost">6000 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Physical Therapy Session', 6000)"
+            >
+              Buy
+            </button>
+          </div>
+          <div class="item-card">
+            <div class="item-name">🧠 Psychotherapy</div>
+            <div class="item-cost">6000 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('Psychotherapy Session', 6000)"
+            >
+              Buy
+            </button>
+          </div>
+        </div>
+
+        <h3 class="category-title">Premium Items</h3>
+        <div class="shop-grid">
+          <div class="item-card">
+            <div class="item-name">⚙️ NeuronFRAMES</div>
+            <div class="item-cost">100000 Stars</div>
+            <button
+              class="buy-btn"
+              onclick="buyItem('NeuronFRAMES equipment', 100000)"
+            >
+              Buy
+            </button>
+          </div>
+        </div>
+
+        <div class="coming-soon">
+          <div class="soon-icon">🚧</div>
+          <div class="soon-text">More items coming soon...</div>
+        </div>
+        <button class="equip-btn" onclick="window.location.href='equip.html'">
+          <i class="fas fa-tshirt"></i> Equip Items Now!
+        </button>
+      </div>
+    </div>
+
+    <script>
+      /* --------- star-sync helper --------- */
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+      const INVENTORY_KEY = "nf_inventory";
+      let currentUser, users;
+
+      function refreshStars() {
+        currentUser = localStorage.getItem(USER_KEY);
+        users = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+        if (!currentUser || !users[currentUser]) {
+          window.location.href = "login.html";
+          return;
+        }
+        document.getElementById("starBalance").textContent =
+          users[currentUser].stars ?? 0;
+      }
+      refreshStars();
+      window.addEventListener("storage", refreshStars);
+      window.addEventListener("focus", refreshStars);
+
+      function buyItem(name, cost, skinFile = null) {
+        if (users[currentUser].stars < cost) {
+          alert("Not enough stars!");
+          return;
+        }
+
+        // Deduct stars
+        users[currentUser].stars -= cost;
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+        // Add to inventory if it's a skin
+        if (skinFile) {
+          let inventory = JSON.parse(
+            localStorage.getItem(INVENTORY_KEY) || "{}"
+          );
+          if (!inventory[currentUser]) {
+            inventory[currentUser] = { skins: [] };
+          }
+          if (!inventory[currentUser].skins.includes(skinFile)) {
+            inventory[currentUser].skins.push(skinFile);
+            localStorage.setItem(INVENTORY_KEY, JSON.stringify(inventory));
+          }
+        }
+
+        refreshStars();
+        alert(`You successfully bought ${name}!`);
+      }
+    </script>
+  </body>
+</html>

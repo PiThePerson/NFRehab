@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/main.css" />
+    <!-- Add this in the head section -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <style>
+      /* Text size controls */
+      .text-size-controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        display: flex;
+        gap: 10px;
+        z-index: 100;
+      }
+
+      .text-size-toggle {
+        background: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Language toggle styles */
+      .language-toggle {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+        font-weight: 600;
+      }
+
+      /* Game mode toggle styles */
+      .game-mode-toggle {
+        display: flex;
+        justify-content: center;
+        margin: 15px 0;
+      }
+
+      .game-mode-container {
+        display: flex;
+        background: #e0e0e0;
+        border-radius: 20px;
+        padding: 4px;
+        position: relative;
+        min-width: 220px; /* Use min-width instead of fixed width */
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      .game-mode-option {
+        padding: 6px 15px;
+        cursor: pointer;
+        z-index: 2;
+        transition: all 0.3s ease;
+        text-align: center;
+        width: 50%;
+        font-weight: 600;
+        color: #555;
+        font-size: 0.9rem; /* Fixed size for toggle buttons */
+      }
+
+      .game-mode-option.active {
+        color: white;
+      }
+
+      .game-mode-slider {
+        position: absolute;
+        height: calc(100% - 8px);
+        width: calc(50% - 8px);
+        background: #4a6bff;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        z-index: 1;
+        top: 4px;
+        left: 4px;
+      }
+
+      .game-mode-slider.multiplayer {
+        left: calc(50% + 4px);
+      }
+
+      .dashboard-row {
+        position: relative;
+        /* main card box */
+        .skins-card {
+          position: absolute;
+          top: 350px;
+          right: -360px; /* keep it on-screen for testing */
+
+          /* ── hard size ─────────────────────────────── */
+          flex: none; /* cancels the 0 0 160px basis  */
+          width: 25px !important; /* !important beats min-width */
+          height: 8px !important;
+
+          /* optional: hide everything except the 🎨 icon */
+          overflow: hidden;
+
+          padding: 0; /* remove extra space */
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        /* keep only the icon so text can't force a bigger box */
+        .skins-card .stat-value {
+          display: none;
+        }
+        .skins-card .stat-label {
+          font-size: 14px; /* just the emoji */
+          line-height: 1;
+        }
+
+        /* text inside the card */
+        .skins-card .stat-label,
+        .skins-card .stat-value {
+          font-size: 0.9rem; /* shrink text */
+          line-height: 1.1;
+        }
+      }
+      /* === Fix text visibility in dashboard cards === */
+      .stat-card .stat-label,
+      .stat-card .stat-value {
+        color: #1a1a1a !important;
+        font-weight: 600;
+        font-size: 1rem;
+      }
+
+      .stat-card {
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        text-align: center;
+      }
+
+      /* Text size classes */
+      .text-normal {
+        --text-size: 1;
+      }
+      .text-large {
+        --text-size: 1.5;
+      }
+      .text-xlarge {
+        --text-size: 2;
+      }
+
+      /* Apply text size scaling */
+      .stat-label,
+      .stat-value,
+      .translatable,
+      .menu-btn,
+      .streak-title,
+      .streak-ach,
+      .streak-msg,
+      .dashboard-logout {
+        font-size: calc(1rem * var(--text-size, 1)) !important;
+      }
+
+      .language-toggle,
+      .text-size-toggle {
+        font-size: calc(0.9rem * var(--text-size, 1)) !important;
+      }
+    </style>
+  </head>
+  <body class="text-normal">
+    <div id="dashboard">
+      <div class="dashboard">
+        <!-- Text Size Controls -->
+        <div class="text-size-controls">
+          <button class="text-size-toggle" id="textSizeToggle">
+            A+ Text Size
+          </button>
+        </div>
+
+        <!-- Language Toggle Button -->
+        <button class="language-toggle" id="languageToggle">ไทย / EN</button>
+
+        <!-- Game Mode Toggle -->
+        <div class="game-mode-toggle">
+          <div class="game-mode-container">
+            <div class="game-mode-option active" id="singlePlayerOption">
+              Single-Player
+            </div>
+            <div class="game-mode-option" id="multiPlayerOption">
+              Multi-Player
+            </div>
+            <div class="game-mode-slider" id="gameModeSlider"></div>
+          </div>
+        </div>
+
+        <div class="logo-wrapper">
+          <div class="logo-clip">
+            <img
+              src="../images/nfl2.png"
+              alt="NeuronFrames Logo"
+              class="logo-img"
+            />
+          </div>
+        </div>
+        <div class="dashboard-row">
+          <!-- SHOP CARD -->
+          <div
+            class="stat-card shop-click"
+            onclick="window.location.href='../shop.html'"
+          >
+            <div class="stat-label">
+              <span>🛍️</span>
+              <span class="translatable" data-key="shop">Shop</span>
+            </div>
+            <div class="stat-value" id="starCount">🌟 0</div>
+          </div>
+
+          <!-- PROGRESS CARD -->
+          <div
+            class="stat-card"
+            onclick="window.location.href='sessions1.html'"
+            style="cursor: pointer"
+          >
+            <div class="stat-label">
+              <span>📊</span>
+              <span class="translatable" data-key="progress"
+                >Progress & Report</span
+              >
+            </div>
+            <div class="stat-value stat-progress" id="progressReport">
+              <span class="translatable" data-key="viewNow">View Now</span>
+            </div>
+          </div>
+
+          <div
+            class="stat-card"
+            onclick="window.location.href='user.html'"
+            style="cursor: pointer"
+          >
+            <div class="stat-label">
+              <span>👤</span>
+              <span class="translatable" data-key="user">User</span>
+            </div>
+            <div class="stat-value" id="usernameDisplay">
+              <span class="translatable" data-key="user">User</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="main-area">
+          <div class="menu-list">
+            <button class="menu-btn" id="normalModeBtn">
+              <span>🔼</span>
+              <span class="translatable" data-key="normalMode"
+                >Normal Mode</span
+              >
+            </button>
+            <button class="menu-btn" id="gameModeBtn">
+              <span>🎮</span>
+              <span class="translatable" data-key="gameMode">Game Mode</span>
+            </button>
+            <button class="menu-btn" id="gripModeBtn">
+              <span>✊</span>
+              <span class="translatable" data-key="gripMode">Grip Mode</span>
+            </button>
+            <button class="menu-btn" id="speechModeBtn">
+              <span>🎙️</span>
+              <span class="translatable" data-key="speechMode"
+                >Speech Mode</span
+              >
+            </button>
+          </div>
+
+          <div class="streak-card">
+            <div class="streak-title">
+              <span>🏆</span>
+              <span class="translatable" data-key="streakTitle"
+                >30-Day Streak!</span
+              >
+            </div>
+            <div class="streak-ach">
+              <span class="translatable" data-key="streakAchievements"
+                >⭐ 5 Achievements</span
+              >
+            </div>
+            <div class="streak-msg">
+              <span class="translatable" data-key="streakMessage"
+                >Keep going ✨</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <button class="dashboard-logout" onclick="logout()">
+          <span class="translatable" data-key="logout">Log Out</span>
+        </button>
+      </div>
+    </div>
+
+    <script>
+      /* ===== LANGUAGE TOGGLE FUNCTIONALITY ===== */
+      const translations = {
+        en: {
+          shop: "Shop",
+          progress: "Progress & Report",
+          user: "User",
+          viewNow: "View Now",
+          normalMode: "Normal Mode",
+          gameMode: "Game Mode",
+          gripMode: "Grip Mode",
+          speechMode: "Speech Mode",
+          streakTitle: "30-Day Streak!",
+          streakAchievements: "⭐ 5 Achievements",
+          streakMessage: "Keep going ✨",
+          logout: "Log Out",
+        },
+        th: {
+          shop: "ร้านค้า",
+          progress: "ความคืบหน้าและรายงาน",
+          user: "ผู้ใช้",
+          viewNow: "ดูตอนนี้",
+          normalMode: "โหมดปกติ",
+          gameMode: "โหมดเกม",
+          gripMode: "โหมดจับ",
+          speechMode: "โหมดพูด",
+          streakTitle: "30 วันติดต่อกัน!",
+          streakAchievements: "⭐ 5 ความสำเร็จ",
+          streakMessage: "ทำต่อไป ✨",
+          logout: "ออกจากระบบ",
+        },
+      };
+
+      /* ===== AUTHENTICATION HELPERS ===== */
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+
+      function checkAuth() {
+        const u = localStorage.getItem(USER_KEY);
+        const db = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+        return !(!u || !db[u]);
+      }
+
+      function refreshUserData() {
+        const u = localStorage.getItem(USER_KEY);
+        const db = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+
+        document.getElementById("usernameDisplay").textContent = u;
+        document.getElementById("starCount").textContent =
+          "🌟 " + (db[u]?.stars ?? 0);
+        document.getElementById("progressReport").textContent =
+          translations[document.documentElement.lang].viewNow;
+      }
+
+      /* ===== LANGUAGE FUNCTIONS ===== */
+      function changeLanguage(lang) {
+        document.documentElement.lang = lang;
+        document.querySelectorAll(".translatable").forEach((element) => {
+          const key = element.getAttribute("data-key");
+          if (translations[lang]?.[key]) {
+            element.textContent = translations[lang][key];
+          }
+        });
+        localStorage.setItem("nf_language", lang);
+        // Update button text
+        document.getElementById("languageToggle").textContent =
+          lang === "en" ? "ไทย / EN" : "TH / English";
+      }
+
+      function toggleLanguage() {
+        const currentLang = document.documentElement.lang;
+        const newLang = currentLang === "en" ? "th" : "en";
+        changeLanguage(newLang);
+      }
+
+      /* ===== TEXT SIZE FUNCTIONS ===== */
+      function toggleTextSize() {
+        const body = document.body;
+        const currentSize = localStorage.getItem("nf_textSize") || "normal";
+        const textSizeToggle = document.getElementById("textSizeToggle");
+
+        let newSize, newLabel;
+        switch (currentSize) {
+          case "normal":
+            newSize = "large";
+            body.className = "text-large";
+            newLabel = "A++ Text Size";
+            break;
+          case "large":
+            newSize = "xlarge";
+            body.className = "text-xlarge";
+            newLabel = "A (Reset)";
+            break;
+          default:
+            newSize = "normal";
+            body.className = "text-normal";
+            newLabel = "A+ Text Size";
+        }
+
+        localStorage.setItem("nf_textSize", newSize);
+        textSizeToggle.textContent = newLabel;
+      }
+
+      function initTextSize() {
+        const savedSize = localStorage.getItem("nf_textSize") || "normal";
+        const body = document.body;
+        const textSizeToggle = document.getElementById("textSizeToggle");
+
+        switch (savedSize) {
+          case "large":
+            body.className = "text-large";
+            textSizeToggle.textContent = "A++ Text Size";
+            break;
+          case "xlarge":
+            body.className = "text-xlarge";
+            textSizeToggle.textContent = "A (Reset)";
+            break;
+          default:
+            body.className = "text-normal";
+            textSizeToggle.textContent = "A+ Text Size";
+        }
+      }
+
+      /* ===== GAME MODE TOGGLE ===== */
+      let currentMode = "single";
+
+      function initGameModeToggle() {
+        document
+          .getElementById("singlePlayerOption")
+          .addEventListener("click", () => switchMode("single"));
+        document
+          .getElementById("multiPlayerOption")
+          .addEventListener("click", () => switchMode("multi"));
+        updateButtonActions(currentMode);
+      }
+
+      function switchMode(mode) {
+        if (mode === currentMode) return;
+
+        const slider = document.getElementById("gameModeSlider");
+        slider.classList.toggle("multiplayer", mode === "multi");
+
+        document
+          .getElementById("singlePlayerOption")
+          .classList.toggle("active", mode === "single");
+        document
+          .getElementById("multiPlayerOption")
+          .classList.toggle("active", mode === "multi");
+
+        updateButtonActions(mode);
+        currentMode = mode;
+      }
+
+      function updateButtonActions(mode) {
+        const buttons = {
+          normal: document.getElementById("normalModeBtn"),
+          game: document.getElementById("gameModeBtn"),
+          grip: document.getElementById("gripModeBtn"),
+          speech: document.getElementById("speechModeBtn"),
+        };
+
+        // Clear existing click handlers
+        Object.values(buttons).forEach((btn) => {
+          btn.onclick = null;
+          btn.style.display = "";
+        });
+
+        if (mode === "multi") {
+          // Only show Game Mode button in multiplayer
+          buttons.normal.style.display = "none"; // Hide Normal Mode
+          buttons.grip.style.display = "none";
+          buttons.speech.style.display = "none";
+
+          // Set click handlers
+          buttons.game.onclick = () =>
+            (window.location.href = "/multi/mode.html");
+        } else {
+          // Show all buttons in single-player
+          buttons.normal.style.display = "";
+          buttons.grip.style.display = "";
+          buttons.speech.style.display = "";
+
+          // Set click handlers
+          buttons.normal.onclick = () =>
+            (window.location.href = "/ept/eptsel.html");
+          buttons.game.onclick = () =>
+            (window.location.href = "/gpt/mm/mmsel.html");
+          buttons.grip.onclick = () => (window.location.href = "/its/its.html");
+          buttons.speech.onclick = () =>
+            (window.location.href = "/speech/speech.html");
+        }
+      }
+
+      /* ===== LOGOUT ===== */
+      function logout() {
+        localStorage.removeItem(USER_KEY);
+        window.location.href = "login.html";
+      }
+
+      /* ===== INITIALIZATION ===== */
+      document.addEventListener("DOMContentLoaded", function () {
+        // Check authentication
+        if (!checkAuth()) {
+          window.location.href = "login.html";
+          return;
+        }
+
+        // Initialize language
+        const savedLang = localStorage.getItem("nf_language") || "en";
+        changeLanguage(savedLang);
+
+        // Initialize text size
+        initTextSize();
+
+        // Add event listeners for toggles
+        document
+          .getElementById("languageToggle")
+          .addEventListener("click", toggleLanguage);
+
+        document
+          .getElementById("textSizeToggle")
+          .addEventListener("click", toggleTextSize);
+
+        // Initialize game mode toggle
+        initGameModeToggle();
+
+        // Load user data
+        refreshUserData();
+      });
+    </script>
+  </body>
+</html>

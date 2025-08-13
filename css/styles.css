@@ -1,0 +1,260 @@
+.login-container {
+  background: #fff;
+  border-radius: 2rem;
+  box-shadow: 0 4px 24px rgba(44, 62, 80, 0.1);
+  width: 340px;
+  padding: 1.5rem 2.2rem 1.5rem 2.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.logo {
+  width: 320px;
+  margin-bottom: 4px;
+  margin-top: 0px;
+  object-fit: contain;
+}
+.logo-img {
+  width: 400px;
+  margin-bottom: 4px;
+  margin-top: 0px;
+  object-fit: contain;
+}
+
+.login-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.8rem;
+  border: 1px solid #d8ecf7;
+  font-size: 1rem;
+  margin-bottom: 1.1rem;
+  background: #f8fafd;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.login-input:focus {
+  border-color: #31d1e1;
+}
+.login-btn,
+.register-btn,
+.exit-btn {
+  width: 100%;
+  padding: 0.7rem;
+  border: none;
+  border-radius: 0.8rem;
+  font-size: 1.09rem;
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.login-btn {
+  background: #26bb36;
+  color: #fff;
+}
+.login-btn:hover {
+  background: #219429;
+}
+.register-btn {
+  background: #226cff;
+  color: #fff;
+}
+.register-btn:hover {
+  background: #1450b4;
+}
+.exit-btn {
+  background: #ededed;
+  color: #222;
+}
+.exit-btn:hover {
+  background: #d1d1d1;
+}
+/* Dashboard styles */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  justify-content: center;
+}
+.dashboard-row {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.1rem 1.5rem;
+  box-shadow: 0 4px 24px rgba(44, 62, 80, 0.08);
+  min-width: 160px;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  /* 🔧 Add this for smooth hover */
+  transition: transform 0.2s ease-in-out;
+}
+.stat-card:hover {
+  transform: scale(1.04);
+}
+.stat-label {
+  font-size: 1.08rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+}
+.stat-value {
+  font-size: 1.28rem;
+  font-weight: 700;
+}
+.stat-leaderboard {
+  color: #1eb86e;
+}
+.stat-therapy {
+  color: #eb920e;
+}
+.main-area {
+  display: flex;
+  gap: 36px;
+}
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: 1.2rem;
+  background-color: white;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  width: 100%;
+  max-width: 250px;
+}
+
+.menu-btn:hover {
+  transform: scale(1.04);
+}
+.streak-card {
+  background: #fff;
+  border-radius: 1rem;
+  min-width: 270px;
+  min-height: 135px;
+  box-shadow: 0 4px 24px rgba(44, 62, 80, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.1rem 1.7rem;
+}
+.streak-title {
+  font-size: 1.32rem;
+  color: #24bb60;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.streak-ach {
+  color: #fbbe36;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 5px;
+}
+.streak-msg {
+  color: #fc9700;
+  font-size: 1.01rem;
+}
+.dashboard-logout {
+  margin-top: 30px;
+  padding: 0.8rem 2.8rem;
+  border-radius: 2rem;
+  background: transparent;
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 1.14rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.dashboard-logout:hover {
+  background: #fff;
+  color: #35d8ca;
+}
+
+#gameCanvas {
+  display: block;
+  margin: 0 auto;
+  background: linear-gradient(to bottom, #87ceeb, #e0f7fa);
+}
+.pressure-bar {
+  transition: width 0.1s ease-out;
+}
+.rehab-icon {
+  color: #3b82f6;
+}
+.game-container {
+  position: relative;
+}
+.modal {
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(5px);
+}
+.pulse {
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes flap {
+  0% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+  100% {
+    transform: rotate(-10deg);
+  }
+}
+#arduinoStatus {
+  transition: all 0.3s ease;
+}
+.connected {
+  background-color: #10b981 !important;
+}
+
+.logo-wrapper {
+  background: white;
+  padding: 15px;
+  border-radius: 1.5rem;
+  border: 4px solid white;
+  margin-bottom: 24px;
+  margin-top: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

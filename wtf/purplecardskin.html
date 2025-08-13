@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memory Match Game</title>
+    <link rel="stylesheet" href="css/pts.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  </head>
+  <body>
+    <div class="top-bar">
+      <a href="dashboard.html" class="back-button"
+        ><i class="fas fa-arrow-left"></i> Back to Dashboard</a
+      >
+      <div class="star-display" id="starCount">
+        🌟 Stars: <span id="starBalance">0</span>
+      </div>
+    </div>
+
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div class="hud top-left" id="currentTime">Time: 0s</div>
+        <div class="hud top-right" id="bestTime">Best: --</div>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn"><i class="fas fa-play"></i> Start Game</button>
+        <button onclick="window.location.href='eptsel.html'">
+          Return to Selection Screen
+        </button>
+        <div class="timer">⏱️ Time: <span id="sessionTime">0</span>s</div>
+      </div>
+    </div>
+
+    <div id="winScreen" style="display: none">
+      <div class="win-content">
+        <div class="win-title">CONGRATULATIONS!</div>
+        <div class="time-display" id="timeDisplay">Time: 0s</div>
+        <div class="best-time-display" id="bestTimeDisplay">Best Time: --</div>
+        <div id="starsContainer"></div>
+        <div class="win-buttons">
+          <button class="play-again-btn" id="playAgainBtn">
+            <i class="fas fa-redo"></i> PLAY AGAIN
+          </button>
+          <button class="next-btn" id="nextBtn">
+            NEXT LEVEL <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ★ 2-second “Memorize!” overlay -->
+    <div
+      id="memorizeOverlay"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 4rem;
+        font-weight: bold;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 999;
+      "
+    >
+      MEMORIZE!
+    </div>
+
+    <script>
+      const videoElement = document.getElementById("video");
+      const canvasElement = document.getElementById("canvas");
+      const ctx = canvasElement.getContext("2d");
+      const user = localStorage.getItem("nf_loggedInUser");
+      const users = JSON.parse(localStorage.getItem("nf_users") || "{}");
+
+      canvasElement.width = window.innerWidth;
+      canvasElement.height = window.innerHeight;
+
+      const CARD_ROWS = 2;
+      const CARD_COLS = 5;
+      const CARD_WIDTH = 200;
+      const CARD_HEIGHT = 250;
+      const CARD_MARGIN = 30;
+      const FLIP_HOLD_TIME = 1500; // ms to trigger flip by hover
+      const FLIP_DURATION = 600; // ms flip animation
+      const PREVIEW_DURATION = 2000; // ms preview all cards
+
+      const shapes = ["circle", "square", "triangle", "star", "hex", "diamond"];
+      const cards = [];
+      let selectedCards = [];
+      let startTime = null;
+      let bestTime = null;
+      let gameStarted = false;
+      let revealTimeout = null;
+
+      /* ───────────────────────── Card class with animation ───────────────────────── */
+      /* ───────────────────────── Card class with purple magic back ───────────────────────── */
+      class Card {
+        constructor(x, y, shape) {
+          this.x = x;
+          this.y = y;
+          this.shape = shape;
+          this.isFlipped = false; // logical face-up state
+          this.isMatched = false;
+          this.hoverStart = null;
+
+          // flip-animation state
+          this.flipProgress = 1; // 1 = back, 0 = front
+          this.targetFaceUp = false;
+          this.flipStart = null;
+
+          // pre-generated sparkle dots so they don’t jump every redraw
+          this.sparkles = Array.from({ length: 14 }, () => ({
+            x: Math.random() * CARD_WIDTH,
+            y: Math.random() * CARD_HEIGHT,
+            r: Math.random() * 2 + 0.5,
+          }));
+        }
+
+        /* begin flip toward desired face */
+        startFlip(faceUp) {
+          if (this.targetFaceUp === faceUp && this.flipStart === null) return;
+          this.targetFaceUp = faceUp;
+          this.flipStart = performance.now();
+        }
+
+        /* update flip each frame; returns true if redraw needed */
+        tickFlip(now) {
+          if (this.flipStart == null) return false;
+          const t = Math.min((now - this.flipStart) / FLIP_DURATION, 1);
+          const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // easeInOutQuad
+          this.flipProgress = this.targetFaceUp ? 1 - eased : eased;
+          if (t === 1) {
+            this.flipStart = null;
+            this.isFlipped = this.targetFaceUp;
+          }
+          return true;
+        }
+
+        get animating() {
+          return this.flipStart !== null;
+        }
+
+        draw(ctx) {
+          ctx.save();
+          const angle = (1 - this.flipProgress) * Math.PI; // 0 → π
+          ctx.translate(this.x + CARD_WIDTH / 2, this.y);
+          ctx.scale(Math.cos(angle), 1);
+          ctx.translate(-CARD_WIDTH / 2, 0);
+
+          /* ── BACK OF CARD (purple magic) ── */
+          if (!this.isFlipped && !this.isMatched) {
+            // violet→lavender gradient
+            const grad = ctx.createLinearGradient(0, 0, 0, CARD_HEIGHT);
+            grad.addColorStop(0, "#6b1fc8");
+            grad.addColorStop(1, "#bb6df9");
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+
+            // sparkles
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            for (const s of this.sparkles) {
+              ctx.beginPath();
+              ctx.arc(s.x, s.y, s.r, 0, 2 * Math.PI);
+              ctx.fill();
+            }
+          } else {
+            /* ── FRONT OF CARD (white background + black shape) ── */
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+
+            ctx.fillStyle = "#000000";
+            const cx = CARD_WIDTH / 2;
+            const cy = CARD_HEIGHT / 2;
+            ctx.beginPath();
+            switch (this.shape) {
+              case "circle":
+                ctx.arc(cx, cy, 40, 0, 2 * Math.PI);
+                break;
+              case "square":
+                ctx.rect(cx - 40, cy - 40, 80, 80);
+                break;
+              case "triangle":
+                ctx.moveTo(cx, cy - 50);
+                ctx.lineTo(cx - 50, cy + 40);
+                ctx.lineTo(cx + 50, cy + 40);
+                ctx.closePath();
+                break;
+              case "hex":
+                for (let i = 0; i < 6; i++) {
+                  const a = (Math.PI / 3) * i - Math.PI / 6;
+                  const x = cx + 50 * Math.cos(a);
+                  const y = cy + 50 * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "star":
+                for (let i = 0; i < 10; i++) {
+                  const a = (Math.PI / 5) * i - Math.PI / 2;
+                  const r = i % 2 === 0 ? 50 : 20;
+                  const x = cx + r * Math.cos(a);
+                  const y = cy + r * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "diamond":
+                ctx.moveTo(cx, cy - 60);
+                ctx.lineTo(cx + 50, cy);
+                ctx.lineTo(cx, cy + 60);
+                ctx.lineTo(cx - 50, cy);
+                ctx.closePath();
+                break;
+            }
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        contains(x, y) {
+          return (
+            x >= this.x &&
+            x <= this.x + CARD_WIDTH &&
+            y >= this.y &&
+            y <= this.y + CARD_HEIGHT
+          );
+        }
+      }
+
+      /* ─────────────────────── create deck ─────────────────────── */
+      function createCards() {
+        const total = CARD_ROWS * CARD_COLS;
+        const pool = [];
+        for (let i = 0; i < total / 2; i++)
+          pool.push(shapes[i % shapes.length], shapes[i % shapes.length]);
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        cards.length = 0;
+        const startX =
+          (canvasElement.width -
+            (CARD_COLS * CARD_WIDTH + (CARD_COLS - 1) * CARD_MARGIN)) /
+          2;
+        const startY =
+          (canvasElement.height -
+            (CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_MARGIN)) /
+          2;
+        for (let r = 0; r < CARD_ROWS; r++) {
+          for (let c = 0; c < CARD_COLS; c++) {
+            const x = startX + c * (CARD_WIDTH + CARD_MARGIN);
+            const y = startY + r * (CARD_HEIGHT + CARD_MARGIN);
+            cards.push(new Card(x, y, pool.pop()));
+          }
+        }
+      }
+
+      /* ───────────────────────── drawing & timer ───────────────────────── */
+      function drawCards() {
+        ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        // mirror webcam
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          videoElement,
+          -canvasElement.width,
+          0,
+          canvasElement.width,
+          canvasElement.height
+        );
+        ctx.restore();
+
+        const now = performance.now();
+        let needsRedraw = false;
+        cards.forEach((c) => {
+          if (c.tickFlip(now)) needsRedraw = true;
+          c.draw(ctx);
+        });
+        if (needsRedraw) requestAnimationFrame(drawCards);
+      }
+
+      function updateTimer() {
+        if (!gameStarted) return;
+        const el = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("sessionTime").textContent = el;
+        document.getElementById("currentTime").textContent = `Time: ${el}s`;
+      }
+
+      const checkWin = () => cards.every((c) => c.isMatched);
+
+      function showWinScreen() {
+        const el = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("timeDisplay").textContent = `Time: ${el}s`;
+        if (bestTime === null || el < bestTime) {
+          bestTime = el;
+          document.getElementById(
+            "bestTimeDisplay"
+          ).textContent = `Best Time: ${bestTime}s`;
+        }
+        if (user && users[user]) {
+          users[user].stars = (users[user].stars || 0) + 10;
+          localStorage.setItem("nf_users", JSON.stringify(users));
+          document.getElementById("starBalance").textContent =
+            users[user].stars;
+          document.getElementById(
+            "starsContainer"
+          ).innerHTML = `🌟 You earned <strong>10</strong> stars!`;
+        }
+        document.getElementById("winScreen").style.display = "flex";
+      }
+
+      /* ───────────────────── memorize preview ───────────────────── */
+      function revealCards() {
+        cards.forEach((c) => c.startFlip(true));
+        drawCards();
+        document.getElementById("memorizeOverlay").style.display = "flex";
+        revealTimeout = setTimeout(() => {
+          cards.forEach((c) => c.startFlip(false));
+          document.getElementById("memorizeOverlay").style.display = "none";
+          startTime = Date.now();
+          gameStarted = true;
+        }, PREVIEW_DURATION);
+      }
+
+      /* ───────────────────────── game reset ───────────────────────── */
+      function resetGame() {
+        if (revealTimeout) clearTimeout(revealTimeout);
+        createCards();
+        selectedCards = [];
+        gameStarted = false;
+        document.getElementById("winScreen").style.display = "none";
+        revealCards();
+      }
+
+      document.getElementById("startBtn").addEventListener("click", resetGame);
+      document
+        .getElementById("playAgainBtn")
+        .addEventListener("click", resetGame);
+      document.getElementById("nextBtn").addEventListener("click", resetGame);
+
+      /* ───────────────────────── MediaPipe Hands setup ───────────────────────── */
+      const hands = new Hands({
+        locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
+      });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.5,
+      });
+
+      hands.onResults((results) => {
+        if (!gameStarted) {
+          drawCards();
+          return;
+        }
+
+        const now = Date.now();
+        const handPositions = [];
+        if (results.multiHandLandmarks) {
+          for (const landmarks of results.multiHandLandmarks) {
+            const tip = landmarks[8];
+            handPositions.push({
+              x: canvasElement.width - tip.x * canvasElement.width,
+              y: tip.y * canvasElement.height,
+            });
+          }
+        }
+
+        for (const card of cards) {
+          let hovering = false;
+          for (const pos of handPositions) {
+            if (card.contains(pos.x, pos.y)) {
+              hovering = true;
+              if (!card.hoverStart) {
+                card.hoverStart = now;
+              } else if (
+                now - card.hoverStart >= FLIP_HOLD_TIME &&
+                !card.targetFaceUp &&
+                selectedCards.length < 2
+              ) {
+                card.startFlip(true);
+                selectedCards.push(card);
+                card.hoverStart = null;
+              }
+              break;
+            }
+          }
+          if (!hovering) card.hoverStart = null;
+        }
+
+        if (selectedCards.length === 2) {
+          const [c1, c2] = selectedCards;
+          if (c1.shape === c2.shape) {
+            c1.isMatched = c2.isMatched = true;
+            selectedCards = [];
+            if (checkWin()) {
+              gameStarted = false;
+              showWinScreen();
+            }
+          } else {
+            setTimeout(() => {
+              c1.startFlip(false);
+              c2.startFlip(false);
+              selectedCards = [];
+            }, 1000);
+          }
+        }
+
+        drawCards();
+        updateTimer();
+      });
+
+      const camera = new Camera(videoElement, {
+        onFrame: async () => {
+          await hands.send({ image: videoElement });
+        },
+        width: canvasElement.width,
+        height: canvasElement.height,
+      });
+      camera.start();
+
+      // initialise UI
+      if (!user || !users[user]) {
+        window.location.href = "login.html";
+      } else {
+        document.getElementById("usernameDisplay").textContent = user;
+        document.getElementById("starCount").textContent = `🌟 ${
+          users[user].stars || 0
+        }`;
+        document.getElementById("progressReport").textContent = "View Now";
+      }
+    </script>
+  </body>
+</html>

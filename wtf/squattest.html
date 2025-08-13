@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Select Exercise - Normal Mode</title>
+    <link rel="stylesheet" href="css/sessions.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <a href="dashboard.html" class="back-button"
+          ><i class="fas fa-arrow-left"></i> Back to Dashboard</a
+        >
+        <h1>Select Exercise</h1>
+
+        <!-- ⭐ live balance badge (added) -->
+        <div style="margin-left: auto; font-size: 1rem">
+          🌟 <span id="starDisplay">0</span>
+        </div>
+      </header>
+
+      <div class="selection-card">
+        <label for="exercise" class="select-label">Exercise</label>
+        <select id="exercise" class="select-input">
+          <option value="squat">Squats</option>
+          <option value="lunge">Lunges</option>
+          <option value="arm_raise">Elbow Flexions</option>
+          <!-- Add more exercises here -->
+        </select>
+
+        <label for="threshold" class="select-label">Angle Threshold (°)</label>
+        <input
+          type="number"
+          id="threshold"
+          class="select-input"
+          placeholder="e.g., 90"
+        />
+
+        <label for="reps" class="select-label">Repetitions</label>
+        <input
+          type="number"
+          id="reps"
+          class="select-input"
+          placeholder="e.g., 10"
+        />
+
+        <button class="start-btn" onclick="startExercise()">
+          Start Exercise
+        </button>
+      </div>
+    </div>
+
+    <script>
+      /* ───────── STAR-SYNC HELPER ───────── */
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+
+      function refreshStars() {
+        const u = localStorage.getItem(USER_KEY);
+        const db = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+        if (!u || !db[u]) {
+          window.location.href = "login.html";
+          return;
+        }
+        document.getElementById("starDisplay").textContent = db[u].stars ?? 0;
+      }
+      refreshStars();
+      window.addEventListener("storage", refreshStars);
+      window.addEventListener("focus", refreshStars);
+      /* ──────────────────────────────────── */
+
+      function startExercise() {
+        const exercise = document.getElementById("exercise").value;
+        const threshold = parseInt(document.getElementById("threshold").value);
+        const reps = parseInt(document.getElementById("reps").value);
+
+        if (!exercise || !threshold || !reps) {
+          alert("Please fill out all fields.");
+          return;
+        }
+
+        // Store settings or redirect to exercise page
+        localStorage.setItem(
+          "exerciseMode",
+          JSON.stringify({ exercise, threshold, reps })
+        );
+        window.location.href = `${exercise}.html`; // e.g., squat.html
+      }
+    </script>
+  </body>
+</html>

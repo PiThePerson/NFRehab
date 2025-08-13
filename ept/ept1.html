@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Squat Tracker</title>
+    <link rel="stylesheet" href="../css/ept.css" />
+    <link rel="stylesheet" href="../css/main.css" />
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  </head>
+  <body>
+    <div class="top-bar">
+      <a href="/dashboard.html" class="back-button">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+      </a>
+      <div class="star-display" id="starCount">
+        🌟 Stars: <span id="starBalance">0</span>
+      </div>
+    </div>
+
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div class="hud top-left" id="currentAngle">Angle: --°</div>
+        <div class="hud top-right" id="squatCount">Squats: 0</div>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn">
+          <i class="fas fa-play"></i> Start Tracking
+        </button>
+        <button id="resetBtn"><i class="fas fa-undo"></i> Reset Count</button>
+        <button id="calibrateBtn">
+          <i class="fas fa-bullseye"></i> Calibrate
+        </button>
+        <button onclick="window.location.href='eptsel.html'">
+          Return to Selection Screen
+        </button>
+        <label for="angleInput">Required Angle:</label>
+        <input type="number" id="angleInput" min="60" max="150" value="90" />
+        <div class="timer">⏱️ Time: <span id="sessionTime">0</span>s</div>
+      </div>
+    </div>
+
+    <script>
+      class AdvancedSquatTracker {
+        constructor() {
+          this.videoElement = document.getElementById("video");
+          this.canvasElement = document.getElementById("canvas");
+          this.ctx = this.canvasElement.getContext("2d");
+
+          // Tracking variables
+          this.squatCount = 0;
+          this.isTracking = false;
+          this.currentState = "ready"; // ready, descending, bottom, ascending, top
+
+          // History for smoothing and validation
+          this.angleHistory = [];
+          this.positionHistory = [];
+          this.timeHistory = [];
+          this.historySize = 10;
+
+          // Thresholds and parameters (more lenient)
+          this.minSquatDepth = 110; // degrees (less strict)
+          this.standingThreshold = 140; // degrees (easier to trigger)
+          this.minSquatDuration = 300; // ms (shorter)
+          this.maxSquatDuration = 8000; // ms (longer)
+          this.smoothingFactor = 0.5; // less smoothing = more responsive
+
+          // State tracking
+          this.squatStartTime = null;
+          this.lastValidSquat = 0;
+          this.consecutiveFrames = 0;
+          this.requiredConsecutiveFrames = 2; // less strict
+
+          // Calibration data
+          this.userStandingAngle = null;
+          this.userMinSquatAngle = null;
+          this.isCalibrated = false;
+
+          this.initializeCamera();
+          this.bindEvents();
+        }
+
+        initializeCamera() {
+          this.pose = new Pose({
+            locateFile: (file) =>
+              `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+          });
+
+          this.pose.setOptions({
+            modelComplexity: 2, // Higher complexity for better accuracy
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            minDetectionConfidence: 0.7, // Higher confidence
+            minTrackingConfidence: 0.7,
+          });
+
+          this.pose.onResults((results) => this.onPoseResults(results));
+
+          this.camera = new Camera(this.videoElement, {
+            onFrame: async () => {
+              await this.pose.send({ image: this.videoElement });
+            },
+            width: 640,
+            height: 480,
+          });
+        }
+
+        bindEvents() {
+          document
+            .getElementById("startBtn")
+            .addEventListener("click", () => this.toggleTracking());
+          document
+            .getElementById("resetBtn")
+            .addEventListener("click", () => this.resetCount());
+          document
+            .getElementById("calibrateBtn")
+            .addEventListener("click", () => this.startCalibration());
+        }
+
+        toggleTracking() {
+          const btn = document.getElementById("startBtn");
+          if (!this.isTracking) {
+            this.camera.start();
+            this.isTracking = true;
+            btn.textContent = "⏸️ Stop Tracking";
+            btn.style.background = "linear-gradient(45deg, #f44336, #ff9800)";
+          } else {
+            this.isTracking = false;
+            btn.textContent = "🎯 Start Tracking";
+            btn.style.background = "linear-gradient(45deg, #ff6b6b, #ffa500)";
+          }
+        }
+
+        resetCount() {
+          this.squatCount = 0;
+          this.currentState = "ready";
+          this.angleHistory = [];
+          this.positionHistory = [];
+          this.timeHistory = [];
+          this.updateDisplay();
+        }
+
+        startCalibration() {
+          alert(
+            "Stand in normal position for 3 seconds, then squat as deep as you can for 3 seconds"
+          );
+          // Calibration logic would go here
+          this.isCalibrated = true;
+        }
+
+        onPoseResults(results) {
+          this.drawResults(results);
+
+          if (results.poseLandmarks && this.isTracking) {
+            const analysis = this.analyzePose(results.poseLandmarks);
+            this.processSquatDetection(analysis);
+            this.updateDisplay(analysis);
+          }
+        }
+
+        analyzePose(landmarks) {
+          // MediaPipe landmarks are already in normalized coordinates (0-1)
+          // but we need to handle mirroring correctly
+
+          // Get both sides for better accuracy
+          // Note: MediaPipe uses viewer's perspective, so left/right are from the person's view
+          const leftHip = landmarks[23]; // Person's left hip
+          const rightHip = landmarks[24]; // Person's right hip
+          const leftKnee = landmarks[25]; // Person's left knee
+          const rightKnee = landmarks[26]; // Person's right knee
+          const leftAnkle = landmarks[27]; // Person's left ankle
+          const rightAnkle = landmarks[28]; // Person's right ankle
+          const leftShoulder = landmarks[11];
+          const rightShoulder = landmarks[12];
+
+          // Calculate angles for both legs
+          const leftKneeAngle = this.calculateAngle(
+            leftHip,
+            leftKnee,
+            leftAnkle
+          );
+          const rightKneeAngle = this.calculateAngle(
+            rightHip,
+            rightKnee,
+            rightAnkle
+          );
+
+          // Calculate hip angles
+          const leftHipAngle = this.calculateAngle(
+            leftShoulder,
+            leftHip,
+            leftKnee
+          );
+          const rightHipAngle = this.calculateAngle(
+            rightShoulder,
+            rightHip,
+            rightKnee
+          );
+
+          // Average angles for stability (ignore NaN values)
+          const validKneeAngles = [leftKneeAngle, rightKneeAngle].filter(
+            (angle) => !isNaN(angle)
+          );
+          const validHipAngles = [leftHipAngle, rightHipAngle].filter(
+            (angle) => !isNaN(angle)
+          );
+
+          const avgKneeAngle =
+            validKneeAngles.length > 0
+              ? validKneeAngles.reduce((a, b) => a + b) / validKneeAngles.length
+              : 0;
+          const avgHipAngle =
+            validHipAngles.length > 0
+              ? validHipAngles.reduce((a, b) => a + b) / validHipAngles.length
+              : 0;
+
+          // Calculate additional metrics
+          const hipY = (leftHip.y + rightHip.y) / 2;
+          const kneeY = (leftKnee.y + rightKnee.y) / 2;
+          const ankleY = (leftAnkle.y + rightAnkle.y) / 2;
+
+          // Depth calculation (normalized)
+          const depth = Math.abs(hipY - ankleY) / Math.abs(kneeY - ankleY);
+
+          // Balance check (hip alignment) - use absolute coordinates for accuracy
+          const balance = Math.abs(leftHip.y - rightHip.y);
+
+          // Smooth the angles
+          const smoothedKneeAngle = this.smoothAngle(avgKneeAngle);
+          const smoothedHipAngle = this.smoothAngle(avgHipAngle, "hip");
+
+          return {
+            kneeAngle: smoothedKneeAngle,
+            hipAngle: smoothedHipAngle,
+            rawKneeAngle: avgKneeAngle,
+            depth: depth,
+            balance: balance,
+            hipY: hipY,
+            confidence: Math.min(
+              leftKnee.visibility || 0,
+              rightKnee.visibility || 0,
+              leftHip.visibility || 0,
+              rightHip.visibility || 0
+            ),
+            leftKneeAngle: leftKneeAngle,
+            rightKneeAngle: rightKneeAngle,
+          };
+        }
+
+        smoothAngle(newAngle, historyKey = "knee") {
+          if (!this[`${historyKey}AngleHistory`]) {
+            this[`${historyKey}AngleHistory`] = [];
+          }
+
+          const history = this[`${historyKey}AngleHistory`];
+          history.push(newAngle);
+
+          if (history.length > this.historySize) {
+            history.shift();
+          }
+
+          // Weighted average with more weight on recent values
+          let weightedSum = 0;
+          let totalWeight = 0;
+
+          for (let i = 0; i < history.length; i++) {
+            const weight = Math.pow(
+              this.smoothingFactor,
+              history.length - 1 - i
+            );
+            weightedSum += history[i] * weight;
+            totalWeight += weight;
+          }
+
+          return weightedSum / totalWeight;
+        }
+
+        processSquatDetection(analysis) {
+          const currentTime = Date.now();
+          const { kneeAngle, hipAngle, confidence, balance } = analysis;
+
+          // More lenient quality checks
+          if (confidence < 0.4) {
+            this.showQualityWarning("poor");
+            return;
+          }
+
+          // Debug info to console
+          console.log(
+            `State: ${this.currentState}, Knee: ${Math.round(
+              kneeAngle
+            )}°, Hip: ${Math.round(hipAngle)}°`
+          );
+
+          // State machine for squat detection (simplified)
+          switch (this.currentState) {
+            case "ready":
+              if (kneeAngle < this.standingThreshold) {
+                this.currentState = "descending";
+                this.squatStartTime = currentTime;
+                this.consecutiveFrames = 0;
+                console.log("Started descending");
+              }
+              break;
+
+            case "descending":
+              if (kneeAngle <= this.minSquatDepth) {
+                this.consecutiveFrames++;
+                if (this.consecutiveFrames >= this.requiredConsecutiveFrames) {
+                  this.currentState = "bottom";
+                  this.consecutiveFrames = 0;
+                  console.log("Reached bottom");
+                }
+              } else if (kneeAngle > this.standingThreshold + 10) {
+                // Reset if going back up without reaching bottom
+                this.currentState = "ready";
+                console.log("Reset - didn't reach bottom");
+              }
+              break;
+
+            case "bottom":
+              if (kneeAngle > this.minSquatDepth + 20) {
+                // give more margin
+                this.currentState = "ascending";
+                this.consecutiveFrames = 0;
+                console.log("Started ascending");
+              }
+              // Check for too long in bottom position
+              if (currentTime - this.squatStartTime > this.maxSquatDuration) {
+                this.currentState = "ready";
+                console.log("Reset - too long in bottom");
+              }
+              break;
+
+            case "ascending":
+              if (kneeAngle >= this.standingThreshold) {
+                this.consecutiveFrames++;
+                if (this.consecutiveFrames >= this.requiredConsecutiveFrames) {
+                  this.completeSquat(currentTime);
+                }
+              } else if (kneeAngle <= this.minSquatDepth + 10) {
+                // Back to bottom
+                this.currentState = "bottom";
+                console.log("Back to bottom");
+              }
+              break;
+          }
+
+          this.showQualityWarning(confidence > 0.6 ? "good" : "warning");
+        }
+
+        completeSquat(currentTime) {
+          const squatDuration = currentTime - this.squatStartTime;
+
+          // Validate squat duration
+          if (
+            squatDuration >= this.minSquatDuration &&
+            squatDuration <= this.maxSquatDuration &&
+            currentTime - this.lastValidSquat > 1000
+          ) {
+            // Prevent double counting
+
+            this.squatCount++;
+            this.lastValidSquat = currentTime;
+            this.showFeedback("Perfect squat! 🎉");
+
+            // Add celebration effect
+            this.celebrateSquat();
+          }
+
+          this.currentState = "ready";
+          this.consecutiveFrames = 0;
+        }
+
+        showQualityWarning(quality) {
+          const indicator = document.getElementById("qualityIndicator");
+          const messages = {
+            good: "Perfect Form ✅",
+            warning: "Check Form ⚠️",
+            poor: "Poor Detection ❌",
+          };
+
+          indicator.textContent = messages[quality];
+          indicator.className = `quality-indicator quality-${quality}`;
+        }
+
+        showFeedback(message) {
+          const feedback = document.getElementById("feedback");
+          feedback.textContent = message;
+          feedback.style.display = "block";
+
+          setTimeout(() => {
+            feedback.style.display = "none";
+          }, 2000);
+        }
+
+        celebrateSquat() {
+          // Add visual celebration effect
+          const canvas = this.canvasElement;
+          const ctx = this.ctx;
+
+          // Create particles effect (simplified)
+          for (let i = 0; i < 10; i++) {
+            setTimeout(() => {
+              ctx.fillStyle = `hsl(${Math.random() * 360}, 100%, 50%)`;
+              ctx.beginPath();
+              ctx.arc(
+                Math.random() * canvas.width,
+                Math.random() * canvas.height,
+                5 + Math.random() * 10,
+                0,
+                2 * Math.PI
+              );
+              ctx.fill();
+            }, i * 50);
+          }
+        }
+
+        calculateAngle(a, b, c) {
+          const ab = { x: a.x - b.x, y: a.y - b.y };
+          const cb = { x: c.x - b.x, y: c.y - b.y };
+          const dot = ab.x * cb.x + ab.y * cb.y;
+          const magAB = Math.sqrt(ab.x * ab.x + ab.y * ab.y);
+          const magCB = Math.sqrt(cb.x * cb.x + cb.y * cb.y);
+          const angleRad = Math.acos(
+            Math.max(-1, Math.min(1, dot / (magAB * magCB)))
+          );
+          return (angleRad * 180) / Math.PI;
+        }
+
+        drawResults(results) {
+          const canvas = this.canvasElement;
+          const ctx = this.ctx;
+
+          canvas.width = this.videoElement.videoWidth || 640;
+          canvas.height = this.videoElement.videoHeight || 480;
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Mirror the video
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.drawImage(
+            results.image,
+            -canvas.width,
+            0,
+            canvas.width,
+            canvas.height
+          );
+          ctx.restore();
+
+          if (results.poseLandmarks) {
+            this.drawPoseLandmarks(results.poseLandmarks);
+          }
+        }
+
+        drawPoseLandmarks(landmarks) {
+          const ctx = this.ctx;
+          const canvas = this.canvasElement;
+
+          // Key points to highlight
+          const keyPoints = [23, 24, 25, 26, 27, 28]; // Hips, knees, ankles
+          const connections = [
+            [23, 25],
+            [25, 27], // Left side
+            [24, 26],
+            [26, 28], // Right side
+            [23, 24], // Hip connection
+          ];
+
+          // Apply mirroring transformation for landmarks
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.translate(-canvas.width, 0);
+
+          // Draw connections
+          ctx.strokeStyle = "#00ff00";
+          ctx.lineWidth = 3;
+          connections.forEach(([start, end]) => {
+            const startPoint = landmarks[start];
+            const endPoint = landmarks[end];
+
+            if (startPoint.visibility > 0.5 && endPoint.visibility > 0.5) {
+              ctx.beginPath();
+              ctx.moveTo(
+                startPoint.x * canvas.width,
+                startPoint.y * canvas.height
+              );
+              ctx.lineTo(endPoint.x * canvas.width, endPoint.y * canvas.height);
+              ctx.stroke();
+            }
+          });
+
+          // Draw key points with color coding
+          const colors = {
+            23: "#ff4444", // Left hip - Red
+            24: "#ff4444", // Right hip - Red
+            25: "#44ff44", // Left knee - Green
+            26: "#44ff44", // Right knee - Green
+            27: "#4444ff", // Left ankle - Blue
+            28: "#4444ff", // Right ankle - Blue
+          };
+
+          keyPoints.forEach((index) => {
+            const landmark = landmarks[index];
+            if (landmark.visibility > 0.5) {
+              ctx.beginPath();
+              ctx.arc(
+                landmark.x * canvas.width,
+                landmark.y * canvas.height,
+                8,
+                0,
+                2 * Math.PI
+              );
+              ctx.fillStyle = colors[index] || "#ff0000";
+              ctx.fill();
+              ctx.strokeStyle = "#ffffff";
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+          });
+
+          ctx.restore();
+        }
+
+        updateDisplay(analysis = null) {
+          document.getElementById("squatCount").textContent = this.squatCount;
+          document.getElementById("state").textContent = this.currentState;
+
+          if (analysis) {
+            document.getElementById("kneeAngle").textContent = `${Math.round(
+              analysis.kneeAngle
+            )}°`;
+            document.getElementById("hipAngle").textContent = `${Math.round(
+              analysis.hipAngle
+            )}°`;
+            document.getElementById("depth").textContent = `${Math.round(
+              analysis.depth * 100
+            )}%`;
+            document.getElementById("balance").textContent =
+              analysis.balance < 0.05 ? "Good" : "Poor";
+
+            // Calculate speed (simplified)
+            const speed =
+              this.angleHistory.length > 1
+                ? Math.abs(
+                    this.angleHistory[this.angleHistory.length - 1] -
+                      this.angleHistory[this.angleHistory.length - 2]
+                  )
+                : 0;
+            document.getElementById("speed").textContent =
+              speed > 5 ? "Fast" : speed > 2 ? "Normal" : "Slow";
+          }
+        }
+      }
+
+      // Initialize the tracker when page loads
+      window.addEventListener("load", () => {
+        new AdvancedSquatTracker();
+      });
+    </script>
+  </body>
+</html>

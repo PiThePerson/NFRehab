@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Memory Match Game</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../css/pts.css" />
+    <link rel="stylesheet" href="../../css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+
+    <!-- MediaPipe libs -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+    <style>
+      /* Dashboard styling - floating left overlay */
+      .dashboard-overlay {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 10px;
+        padding: 15px;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        backdrop-filter: blur(5px);
+      }
+
+      .dashboard-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .back-button {
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      .star-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      /* Main container layout */
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
+
+      .video-wrapper {
+        position: relative;
+        flex-grow: 1;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+      }
+
+      #video,
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .controls {
+        padding: 1rem;
+        background-color: rgba(52, 73, 94, 0.7);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .game-info {
+        display: flex;
+        gap: 1rem;
+        margin-left: auto;
+        color: white;
+      }
+
+      /* Confetti effect */
+      .confetti {
+        position: fixed;
+        z-index: 9999;
+        pointer-events: none;
+      }
+
+      /* Prevent phone access */
+      @media (max-width: 768px) and (max-aspect-ratio: 1/1) {
+        body::before {
+          content: "This game is designed for iPad and desktop use only. Please use a larger device.";
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: white;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+          padding: 2rem;
+          font-size: 1.5rem;
+          z-index: 99999;
+        }
+
+        .main-container,
+        .dashboard-overlay {
+          display: none !important;
+        }
+      }
+
+      /* --- Tablet-only fix: allow vertical scroll without changing desktop UI --- */
+      @media (hover: none) and (min-width: 769px) and (max-width: 1366px) {
+        .main-container {
+          height: 100svh;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .video-wrapper {
+          min-height: 100svh;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Dashboard Overlay -->
+    <div class="dashboard-overlay">
+      <div class="dashboard-item">
+        <a href="/dashboard.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+      </div>
+      <div class="dashboard-item star-display" id="starCount">
+        <i class="fas fa-star"></i>
+        <span id="starBalance">0</span> Stars
+      </div>
+    </div>
+
+    <!-- Main Game Layout -->
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn"><i class="fas fa-play"></i> Start Game</button>
+        <button onclick="window.location.href='mmsel.html'">
+          Change Settings
+        </button>
+        <label for="cameraSelect" style="margin-left: 1rem">Camera:</label>
+        <select id="cameraSelect"></select>
+        <div class="game-info">
+          <div id="difficultyDisplay"></div>
+          <div id="timeDisplay">Time: <span id="sessionTime">0</span>s</div>
+          <div id="timeLimitDisplay" style="display: none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Win Screen -->
+    <div id="winScreen" style="display: none">
+      <div class="win-content">
+        <div class="trophy-glow">
+          <i class="fas fa-trophy"></i>
+        </div>
+        <div class="win-title">CONGRATULATIONS!</div>
+        <p class="stat-label">Memory Match Completed</p>
+        <div class="stats-container">
+          <div class="stat-row">
+            <span class="stat-label">Time:</span>
+            <span class="stat-value" id="winTimeDisplay">0s</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Best Time:</span>
+            <span class="stat-value" id="bestTimeDisplay">--</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Stars Earned:</span>
+            <div class="flex items-center">
+              <i class="fas fa-star text-yellow-400 star-pulse"></i>
+              <span class="stat-value" id="starsEarnedDisplay">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="quote-box">
+          "Every victory, no matter how small, is a step toward greatness. Keep
+          pushing forward!"
+        </div>
+        <div class="win-buttons">
+          <button
+            class="win-btn bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800"
+            onclick="window.location.href='/dashboard.html'"
+          >
+            <i class="fas fa-home"></i> Home
+          </button>
+          <button
+            class="win-btn bg-blue-600 hover:bg-blue-700 text-white"
+            id="playAgainBtn"
+          >
+            <i class="fas fa-redo"></i> Play Again
+          </button>
+          <button
+            class="win-btn bg-indigo-600 hover:bg-indigo-700 text-white"
+            onclick="window.location.href='mmsel.html'"
+          >
+            <i class="fas fa-sliders-h"></i> Change Difficulty
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memorize Overlay -->
+    <div
+      id="memorizeOverlay"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 4rem;
+        font-weight: bold;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 999;
+      "
+    >
+      MEMORIZE!
+    </div>
+
+    <!-- Countdown Overlay -->
+    <div
+      id="countdown"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 10rem;
+        font-weight: bold;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 999;
+      "
+    ></div>
+
+    <script>
+      // Star Balance Sync
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+
+      function refreshStars() {
+        const u = localStorage.getItem(USER_KEY);
+        const db = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+        if (!u || !db[u]) {
+          window.location.href = "/login.html";
+          return;
+        }
+
+        if (!db[u].bestTimes) {
+          db[u].bestTimes = {};
+          localStorage.setItem(USERS_KEY, JSON.stringify(db));
+        }
+
+        document.getElementById("starBalance").textContent = db[u].stars ?? 0;
+      }
+      refreshStars();
+      window.addEventListener("storage", refreshStars);
+      window.addEventListener("focus", refreshStars);
+
+      // Game Globals
+      const videoElement = document.getElementById("video");
+      const canvasElement = document.getElementById("canvas");
+      const ctx = canvasElement.getContext("2d");
+
+      const user = localStorage.getItem(USER_KEY);
+      const users = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+
+      // Initialize canvas size
+      function initCanvasSize() {
+        canvasElement.width = window.innerWidth;
+        canvasElement.height = window.innerHeight;
+      }
+      initCanvasSize();
+
+      // Game Settings
+      const settings = JSON.parse(
+        localStorage.getItem("memoryMatchSettings") || "{}"
+      );
+      const difficultyNames = {
+        easy: "Easy 🌱",
+        medium: "Medium ⚖️",
+        hard: "Hard 🔥",
+        expert: "Expert 👑",
+      };
+      const currentDifficulty =
+        document.getElementById("difficulty")?.value ||
+        settings.difficulty ||
+        "medium";
+      document.getElementById(
+        "difficultyDisplay"
+      ).textContent = `Difficulty: ${difficultyNames[currentDifficulty]}`;
+      const CARD_ROWS = settings.rows || 2;
+      const CARD_COLS = settings.cols || 5;
+
+      // ---------- Responsive Card Metrics (preserve desktop look) ----------
+      let CARD_WIDTH = 200;
+      let CARD_HEIGHT = 250;
+      let CARD_MARGIN = 30;
+
+      function computeCardMetrics() {
+        const defaults = { w: 200, h: 250, m: 30 };
+
+        const cols = CARD_COLS;
+        const rows = CARD_ROWS;
+
+        // Leave some padding so edges don't touch
+        const maxW = canvasElement.width * 0.92;
+        const maxH = canvasElement.height * 0.86;
+
+        const totalW = cols * defaults.w + (cols - 1) * defaults.m;
+        const totalH = rows * defaults.h + (rows - 1) * defaults.m;
+
+        // Uniform scale to fit both dimensions
+        const scale = Math.min(maxW / totalW, maxH / totalH);
+
+        // If it fits already (desktop), keep exact defaults
+        if (scale >= 1) {
+          return { width: defaults.w, height: defaults.h, margin: defaults.m };
+        }
+
+        // Downscale proportionally for tablets
+        const width = Math.floor(defaults.w * scale);
+        const height = Math.floor(defaults.h * scale);
+        const margin = Math.max(12, Math.floor(defaults.m * scale)); // at least 12px gap
+
+        return { width, height, margin };
+      }
+
+      function applyCardMetrics() {
+        const m = computeCardMetrics();
+        CARD_WIDTH = m.width;
+        CARD_HEIGHT = m.height;
+        CARD_MARGIN = m.margin;
+      }
+
+      // ---------- Constants that depend on settings (unchanged behavior) ----------
+      const FLIP_HOLD_TIME = settings.hoverTime || 4500;
+      const FLIP_DURATION = 600;
+      const PREVIEW_DURATION = (settings.previewTime || 2) * 1000;
+      const TIME_LIMIT = (settings.timeLimit || 0) * 10000;
+
+      const shapes = [
+        "circle",
+        "square",
+        "triangle",
+        "star",
+        "hex",
+        "diamond",
+        "heart",
+        "cloud",
+        "moon",
+        "cross",
+      ];
+
+      // Card Class with Color Transition
+      class Card {
+        constructor(x, y, shape) {
+          this.x = x;
+          this.y = y;
+          this.shape = shape;
+          this.isFlipped = false;
+          this.isMatched = false;
+          this.hoverStart = null;
+          this.flipProgress = 1;
+          this.targetFaceUp = false;
+          this.flipStart = null;
+        }
+
+        startFlip(faceUp) {
+          if (this.targetFaceUp === faceUp && this.flipStart === null) return;
+          this.targetFaceUp = faceUp;
+          this.flipStart = performance.now();
+        }
+
+        tickFlip(now) {
+          if (this.flipStart === null) return false;
+          const t = Math.min((now - this.flipStart) / FLIP_DURATION, 1);
+          const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2) * t;
+          this.flipProgress = this.targetFaceUp ? 1 - eased : eased;
+          if (t === 1) {
+            this.flipStart = null;
+            this.isFlipped = this.targetFaceUp;
+          }
+          return true;
+        }
+
+        draw(ctx) {
+          ctx.save();
+
+          const angle = (1 - this.flipProgress) * Math.PI;
+          ctx.translate(this.x + CARD_WIDTH / 2, this.y);
+          ctx.scale(Math.cos(angle), 1);
+          ctx.translate(-CARD_WIDTH / 2, 0);
+
+          // Color transition logic
+          if (this.isFlipped || this.isMatched) {
+            ctx.fillStyle = "#FFFFFF";
+          } else if (this.hoverStart) {
+            const hoverProgress = Math.min(
+              (performance.now() - this.hoverStart) / FLIP_HOLD_TIME,
+              1
+            );
+            const redValue = Math.floor(255 * hoverProgress);
+            const greenValue = Math.floor(255 * (1 - hoverProgress));
+            ctx.fillStyle = `rgba(${redValue}, ${greenValue}, 0, 0.7)`;
+          } else {
+            ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
+          }
+
+          ctx.globalAlpha = 0.7;
+          ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+
+          if (this.isFlipped || this.isMatched) {
+            ctx.fillStyle = "#000";
+            const cx = CARD_WIDTH / 2;
+            const cy = CARD_HEIGHT / 2;
+            ctx.beginPath();
+
+            switch (this.shape) {
+              case "circle":
+                ctx.arc(cx, cy, 40, 0, 2 * Math.PI);
+                break;
+              case "square":
+                ctx.rect(cx - 40, cy - 40, 80, 80);
+                break;
+              case "triangle":
+                ctx.moveTo(cx, cy - 50);
+                ctx.lineTo(cx - 50, cy + 40);
+                ctx.lineTo(cx + 50, cy + 40);
+                ctx.closePath();
+                break;
+              case "star":
+                for (let i = 0; i < 10; i++) {
+                  const a = (Math.PI / 5) * i - Math.PI / 2;
+                  const r = i % 2 === 0 ? 50 : 20;
+                  const x = cx + r * Math.cos(a);
+                  const y = cy * 1 + r * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "hex":
+                for (let i = 0; i < 6; i++) {
+                  const a = (Math.PI / 3) * i - Math.PI / 6;
+                  const x = cx + 50 * Math.cos(a);
+                  const y = cy + 50 * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "diamond":
+                ctx.moveTo(cx, cy - 60);
+                ctx.lineTo(cx + 50, cy);
+                ctx.lineTo(cx, cy + 60);
+                ctx.lineTo(cx - 50, cy);
+                ctx.closePath();
+                break;
+              case "heart":
+                ctx.moveTo(cx, cy - 40);
+                ctx.bezierCurveTo(
+                  cx + 40,
+                  cy - 60,
+                  cx + 60,
+                  cy - 20,
+                  cx,
+                  cy + 40
+                );
+                ctx.bezierCurveTo(
+                  cx - 60,
+                  cy - 20,
+                  cx - 40,
+                  cy - 60,
+                  cx,
+                  cy - 40
+                );
+                break;
+              case "pentagon":
+                for (let i = 0; i < 5; i++) {
+                  const a = ((Math.PI * 2) / 5) * i - Math.PI / 2;
+                  const x = cx + 50 * Math.cos(a);
+                  const y = cy + 50 * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "octagon":
+                for (let i = 0; i < 8; i++) {
+                  const a = ((Math.PI * 2) / 8) * i - Math.PI / 8;
+                  const x = cx + 50 * Math.cos(a);
+                  const y = cy + 50 * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "cross":
+                ctx.rect(cx - 50, cy - 15, 100, 30);
+                ctx.rect(cx - 15, cy - 50, 30, 100);
+                break;
+              case "moon":
+                ctx.arc(cx, cy, 40, -Math.PI / 2, Math.PI / 2);
+                ctx.arc(cx - 20, cy, 40, Math.PI / 2, -Math.PI / 2, true);
+                break;
+              case "cloud":
+                ctx.arc(cx - 20, cy, 20, 0, Math.PI * 2);
+                ctx.arc(cx + 10, cy - 10, 25, 0, Math.PI * 2);
+                ctx.arc(cx + 30, cy + 10, 20, 0, Math.PI * 2);
+                break;
+            }
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        contains(x, y) {
+          return (
+            x >= this.x &&
+            x <= this.x + CARD_WIDTH &&
+            y >= this.y &&
+            y <= this.y + CARD_HEIGHT
+          );
+        }
+      }
+
+      // Game State
+      const cards = [];
+      let selectedCards = [];
+      let startTime = null;
+      let gameStarted = false;
+      let revealTimeout = null;
+      let timeLimitTimeout = null;
+      let timerInterval = null;
+
+      // NEW: lock while checking a pair to avoid 3rd flip / stuck card
+      let resolvingPair = false;
+
+      function clearAllHovers() {
+        for (const c of cards) c.hoverStart = null;
+      }
+
+      // Reposition existing cards (used on resize)
+      function positionCards() {
+        const startX =
+          (canvasElement.width -
+            (CARD_COLS * CARD_WIDTH + (CARD_COLS - 1) * CARD_MARGIN)) /
+          2;
+        const startY =
+          (canvasElement.height -
+            (CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_MARGIN)) /
+          2;
+
+        let idx = 0;
+        for (let r = 0; r < CARD_ROWS; r++) {
+          for (let c = 0; c < CARD_COLS; c++) {
+            const x = startX + c * (CARD_WIDTH + CARD_MARGIN);
+            const y = startY + r * (CARD_HEIGHT + CARD_MARGIN);
+            if (cards[idx]) {
+              cards[idx].x = x;
+              cards[idx].y = y;
+            }
+            idx++;
+          }
+        }
+      }
+
+      function relayoutForResize() {
+        applyCardMetrics();
+        if (cards.length) {
+          positionCards();
+          drawCards();
+        }
+      }
+
+      // Game Functions
+      function createCards() {
+        applyCardMetrics(); // compute sizes that fit before laying out
+
+        const total = CARD_ROWS * CARD_COLS;
+        const pool = [];
+        const pairsNeeded = total / 2;
+        const repeats = Math.ceil(pairsNeeded / shapes.length);
+
+        for (let i = 0; i < repeats; i++) {
+          for (const shape of shapes) {
+            pool.push(shape, shape);
+            if (pool.length >= total) break;
+          }
+          if (pool.length >= total) break;
+        }
+
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+
+        cards.length = 0;
+        const startX =
+          (canvasElement.width -
+            (CARD_COLS * CARD_WIDTH + (CARD_COLS - 1) * CARD_MARGIN)) /
+          2;
+        const startY =
+          (canvasElement.height -
+            (CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_MARGIN)) /
+          2;
+
+        for (let r = 0; r < CARD_ROWS; r++) {
+          for (let c = 0; c < CARD_COLS; c++) {
+            const x = startX + c * (CARD_WIDTH + CARD_MARGIN);
+            const y = startY + r * (CARD_HEIGHT + CARD_MARGIN);
+            cards.push(new Card(x, y, pool.pop()));
+          }
+        }
+      }
+
+      function drawCards() {
+        ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          videoElement,
+          -canvasElement.width,
+          0,
+          canvasElement.width,
+          canvasElement.height
+        );
+        ctx.restore();
+
+        const now = performance.now();
+        let needsRedraw = false;
+        cards.forEach((c) => {
+          if (c.tickFlip(now)) needsRedraw = true;
+          c.draw(ctx);
+        });
+        if (needsRedraw) requestAnimationFrame(drawCards);
+      }
+
+      function updateTimer() {
+        if (!gameStarted) return;
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("sessionTime").textContent = elapsed;
+
+        if (TIME_LIMIT > 0) {
+          const remaining = Math.max(0, TIME_LIMIT - (Date.now() - startTime));
+          const remainingSec = Math.ceil(remaining / 1000);
+          document.getElementById(
+            "timeLimitDisplay"
+          ).textContent = `Time Left: ${remainingSec}s`;
+          document.getElementById("timeLimitDisplay").style.display = "block";
+
+          if (remaining <= 0) {
+            gameStarted = false;
+            clearInterval(timerInterval);
+            setTimeout(() => {
+              alert("Time's up! Try again.");
+              resetGame();
+            }, 500);
+          }
+        }
+      }
+
+      function showCountdown(seconds, callback) {
+        const countdown = document.getElementById("countdown");
+        countdown.style.display = "flex";
+        let remaining = seconds;
+        countdown.textContent = remaining;
+
+        const interval = setInterval(() => {
+          remaining--;
+          countdown.textContent = remaining;
+          if (remaining <= 0) {
+            clearInterval(interval);
+            countdown.style.display = "none";
+            if (callback) callback();
+          }
+        }, 1000);
+      }
+
+      function checkWin() {
+        return cards.every((c) => c.isMatched);
+      }
+
+      function showWinScreen() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("winTimeDisplay").textContent = `${elapsed}s`;
+
+        const userData = users[user] || {};
+        const bestTimes = userData.bestTimes || {};
+        const difficultyKey = currentDifficulty || "medium";
+
+        if (!bestTimes[difficultyKey] || elapsed < bestTimes[difficultyKey]) {
+          bestTimes[difficultyKey] = elapsed;
+          users[user] = { ...userData, bestTimes };
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
+        const bestTime = bestTimes[difficultyKey] || "--";
+        document.getElementById("bestTimeDisplay").textContent =
+          bestTime === "--" ? "--" : `${bestTime}s`;
+
+        const starRewards = {
+          easy: 5,
+          medium: 10,
+          hard: 15,
+          expert: 20,
+          custom: 10,
+        };
+        const starsEarned = starRewards[currentDifficulty] || 10;
+        document.getElementById("starsEarnedDisplay").textContent = starsEarned;
+
+        if (user && users[user]) {
+          users[user].stars = (users[user].stars || 0) + starsEarned;
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+          refreshStars();
+        }
+
+        createConfetti();
+        document.getElementById("winScreen").style.display = "flex";
+
+        try {
+          const sessions = JSON.parse(
+            localStorage.getItem("therapySessions") || "[]"
+          );
+          sessions.push({
+            date: new Date().toISOString(),
+            mode: "game",
+            game: "Memory Match",
+            difficulty: currentDifficulty,
+            duration: elapsed,
+            score: null,
+          });
+          localStorage.setItem("therapySessions", JSON.stringify(sessions));
+        } catch (err) {
+          console.warn("Could not save session history", err);
+        }
+      }
+
+      function createConfetti() {
+        const colors = [
+          "#ff0000",
+          "#00ff00",
+          "#0000ff",
+          "#ffff00",
+          "#ff00ff",
+          "#00ffff",
+        ];
+        const container = document.body;
+
+        for (let i = 0; i < 100; i++) {
+          const confetti = document.createElement("div");
+          confetti.className = "confetti";
+          confetti.style.backgroundColor =
+            colors[Math.floor(Math.random() * colors.length)];
+          confetti.style.left = Math.random() * 100 + "vw";
+          confetti.style.top = -10 + "px";
+          confetti.style.borderRadius = Math.random() * 50 + "%";
+          confetti.style.width = Math.random() * 10 + 5 + "px";
+          confetti.style.height = confetti.style.width;
+
+          container.appendChild(confetti);
+
+          const animationDuration = Math.random() * 3 + 2;
+
+          confetti.animate(
+            [
+              { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+              {
+                transform: `translate(${Math.random() * 200 - 100}px, ${
+                  window.innerHeight
+                }px) rotate(${Math.random() * 360}deg)`,
+                opacity: 0,
+              },
+            ],
+            {
+              duration: animationDuration * 1000,
+              easing: "cubic-bezier(0.1, 0.8, 0.9, 1)",
+              fill: "forwards",
+            }
+          );
+
+          setTimeout(() => {
+            confetti.remove();
+          }, animationDuration * 1000);
+        }
+      }
+
+      function revealCards() {
+        cards.forEach((c) => c.startFlip(true));
+        drawCards();
+        document.getElementById("memorizeOverlay").style.display = "flex";
+
+        setTimeout(() => {
+          cards.forEach((c) => c.startFlip(false));
+          document.getElementById("memorizeOverlay").style.display = "none";
+          startTime = Date.now();
+          gameStarted = true;
+          timerInterval = setInterval(updateTimer, 1000);
+
+          if (TIME_LIMIT > 0) {
+            timeLimitTimeout = setTimeout(() => {
+              if (gameStarted && !checkWin()) {
+                gameStarted = false;
+                clearInterval(timerInterval);
+                document.getElementById("timeLimitDisplay").textContent =
+                  "TIME'S UP!";
+                setTimeout(() => {
+                  alert("Time's up! Try again.");
+                  resetGame();
+                }, 500);
+              }
+            }, TIME_LIMIT);
+          }
+        }, PREVIEW_DURATION);
+      }
+
+      function resetGame() {
+        if (revealTimeout) clearTimeout(revealTimeout);
+        if (timeLimitTimeout) clearTimeout(timeLimitTimeout);
+        if (timerInterval) clearInterval(timerInterval);
+        resolvingPair = false;
+        createCards();
+        selectedCards = [];
+        gameStarted = false;
+        document.getElementById("winScreen").style.display = "none";
+        document.getElementById("timeLimitDisplay").style.display = "none";
+        clearAllHovers();
+        revealCards();
+      }
+
+      document.getElementById("startBtn").addEventListener("click", resetGame);
+      document
+        .getElementById("playAgainBtn")
+        .addEventListener("click", resetGame);
+
+      // MediaPipe Hands Setup
+      const hands = new Hands({
+        locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
+      });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.5,
+      });
+
+      // Camera Selection
+      const cameraSelect = document.getElementById("cameraSelect");
+      let currentStream = null;
+
+      async function initCameraSelector() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+          stream.getTracks().forEach((track) => track.stop());
+
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(
+            (device) => device.kind === "videoinput"
+          );
+
+          cameraSelect.innerHTML = "";
+          videoDevices.forEach((device) => {
+            const option = document.createElement("option");
+            option.value = device.deviceId;
+            option.text = device.label || `Camera ${cameraSelect.length + 1}`;
+            cameraSelect.appendChild(option);
+          });
+
+          if (videoDevices.length > 0) {
+            await startCamera(videoDevices[0].deviceId);
+          }
+
+          cameraSelect.addEventListener("change", async () => {
+            await startCamera(cameraSelect.value);
+          });
+        } catch (error) {
+          console.error("Camera initialization failed:", error);
+          alert(
+            "Camera access is required for this game. Please enable camera permissions."
+          );
+        }
+      }
+
+      async function startCamera(deviceId) {
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop());
+        }
+
+        try {
+          currentStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: { exact: deviceId },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user",
+            },
+          });
+
+          videoElement.srcObject = currentStream;
+          await videoElement.play();
+
+          hands.onResults(onHandResults);
+          const camera = new Camera(videoElement, {
+            onFrame: async () => {
+              await hands.send({ image: videoElement });
+            },
+            width: 1280,
+            height: 720,
+          });
+          camera.start();
+        } catch (error) {
+          console.error("Error starting camera:", error);
+          alert(`Could not start camera: ${error.message}`);
+        }
+      }
+
+      // Hand Tracking Logic
+      function onHandResults(results) {
+        // Always draw background + cards
+        // If we're resolving a pair, block new flips but keep animation running
+        if (!gameStarted) {
+          drawCards();
+          return;
+        }
+
+        if (resolvingPair) {
+          clearAllHovers(); // prevent instant re-flips when unlocks
+          drawCards();
+          return;
+        }
+
+        const now = Date.now();
+        const handPositions = [];
+
+        if (results.multiHandLandmarks) {
+          for (const lm of results.multiHandLandmarks) {
+            const tip = lm[8];
+            handPositions.push({
+              x: canvasElement.width - tip.x * canvasElement.width,
+              y: tip.y * canvasElement.height,
+            });
+          }
+        }
+
+        for (const card of cards) {
+          let hovering = false;
+
+          for (const p of handPositions) {
+            if (card.contains(p.x, p.y)) {
+              hovering = true;
+              if (!card.hoverStart) card.hoverStart = now;
+
+              // Only allow flip if fewer than 2 selected
+              if (
+                selectedCards.length < 2 &&
+                now - card.hoverStart >= FLIP_HOLD_TIME &&
+                !card.targetFaceUp && // not already being flipped face-up
+                !card.isFlipped && // not already face-up
+                !card.isMatched // ignore matched
+              ) {
+                card.startFlip(true);
+                selectedCards.push(card);
+                card.hoverStart = null;
+
+                // If this is the second card, immediately evaluate & lock
+                if (selectedCards.length === 2) {
+                  resolvingPair = true;
+                  const [c1, c2] = selectedCards;
+
+                  if (c1.shape === c2.shape) {
+                    // Match: mark and unlock quickly
+                    c1.isMatched = c2.isMatched = true;
+                    selectedCards = [];
+                    clearAllHovers();
+                    resolvingPair = false;
+
+                    if (checkWin()) {
+                      gameStarted = false;
+                      clearInterval(timerInterval);
+                      if (timeLimitTimeout) clearTimeout(timeLimitTimeout);
+                      setTimeout(showWinScreen, 500);
+                    }
+                  } else {
+                    // Mismatch: flip both back after a short delay, then unlock
+                    setTimeout(() => {
+                      c1.startFlip(false);
+                      c2.startFlip(false);
+                      selectedCards = [];
+                      clearAllHovers();
+                      resolvingPair = false;
+                    }, 1000);
+                  }
+                }
+              }
+              break;
+            }
+          }
+          if (!hovering) card.hoverStart = null;
+        }
+
+        drawCards();
+      }
+
+      // Initialize Game
+      if (!user || !users[user]) {
+        window.location.href = "/login.html";
+      } else {
+        refreshStars();
+        initCameraSelector();
+        createCards();
+        drawCards();
+      }
+
+      // Handle resize/orientation: keep UI, just scale cards to fit
+      window.addEventListener("resize", () => {
+        initCanvasSize();
+        relayoutForResize();
+      });
+    </script>
+  </body>
+</html>

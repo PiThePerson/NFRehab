@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Selection</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../css/main.css" />
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: linear-gradient(
+          270deg,
+          #3ce3a4 0%,
+          #35d8ca 43%,
+          #31d1e1 58%,
+          #2fc9ff 100%
+        );
+        min-height: 100vh;
+        margin: 0;
+        padding: 2rem;
+        color: #333;
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+      }
+
+      .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 0.5rem;
+        color: #3b82f6;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+      }
+
+      .back-button:hover {
+        background: rgba(255, 255, 255, 1);
+        transform: translateY(-1px);
+      }
+
+      .title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+      }
+
+      .game-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .game-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+      }
+
+      .game-icon {
+        font-size: 2.5rem;
+        color: #3b82f6;
+        margin-bottom: 1rem;
+      }
+
+      .game-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #1e293b;
+      }
+
+      .game-desc {
+        color: #64748b;
+        margin-bottom: 1.5rem;
+        line-height: 1.5;
+      }
+
+      .play-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 0.75rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .play-button:hover {
+        background: #2563eb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="/dashboard.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+        <h1 class="title">Select a Game</h1>
+      </div>
+
+      <div class="games-grid">
+        <!-- Game Card 1 - Memory Match -->
+        <div class="game-card">
+          <div class="game-icon">
+            <i class="fas fa-brain"></i>
+          </div>
+          <h2 class="game-name">Memory Match</h2>
+          <p class="game-desc">
+            Test your memory by matching pairs of cards using hand gestures.
+            Flip cards by hovering over them with your hands!
+          </p>
+          <button
+            class="play-button"
+            onclick="window.location.href='connections/connectionssel.html'"
+          >
+            <i class="fas fa-play"></i> Play Now
+          </button>
+        </div>
+
+        <!-- Game Card 2 - Sequence Memory -->
+        <div class="game-card">
+          <div class="game-icon">
+            <i class="fas fa-memory"></i>
+          </div>
+          <h2 class="game-name">Sequence Memory</h2>
+          <p class="game-desc">
+            Remember and repeat light patterns by pointing at panels. Test your
+            short-term memory as the sequences get longer!
+          </p>
+          <button
+            class="play-button"
+            onclick="window.location.href='sequence-memory.html'"
+          >
+            <i class="fas fa-play"></i> Play Now
+          </button>
+        </div>
+
+        <!-- Template for adding more games - just copy this block -->
+        <!--
+            <div class="game-card">
+                <div class="game-icon">
+                    <i class="fas fa-gamepad"></i>
+                </div>
+                <h2 class="game-name">Game Name</h2>
+                <p class="game-desc">
+                    Game description goes here. Explain what the game is about 
+                    and how to play it in 1-2 sentences.
+                </p>
+                <button class="play-button">
+                    <i class="fas fa-play"></i> Play Now
+                </button>
+            </div>
+            -->
+      </div>
+    </div>
+  </body>
+</html>

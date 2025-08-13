@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Straight Leg Raise Tracker</title>
+
+    <!-- external styles -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <style>
+      :root {
+        /* orange theme for control buttons */
+        --btn-a: #ff6b6b; /* coral */
+        --btn-b: #ffa500; /* orange */
+        --btn-active-a: #f44336; /* stop state – red/orange */
+        --btn-active-b: #ff9800; /* stop state – amber */
+        /* keep the page bg as-is or tweak if you want */
+        --bg-a: #0ea5e9; /* sky blue */
+        --bg-b: #10b981; /* emerald */
+        --bg-deep: #0b1220;
+      }
+
+      /* Page background to match blue/green vibe */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: radial-gradient(
+            1200px 800px at 15% 0%,
+            rgba(255, 255, 255, 0.04),
+            transparent 60%
+          ),
+          radial-gradient(
+            1000px 700px at 85% 20%,
+            rgba(255, 255, 255, 0.045),
+            transparent 60%
+          ),
+          linear-gradient(135deg, var(--bg-a) 0%, var(--bg-b) 55%);
+        background-color: var(--bg-deep);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto,
+          "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
+          "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+      }
+
+      /* ───── DASHBOARD OVERLAY ───── */
+      .dashboard-overlay {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 14px;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      }
+
+      .dashboard-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .back-button {
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      .star-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      /* ───── MAIN AREA ───── */
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        padding: 16px;
+        box-sizing: border-box;
+        gap: 12px;
+      }
+
+      .video-wrapper {
+        position: relative;
+        width: min(1200px, 100%);
+        margin: 0 auto;
+        /* keep the camera visually consistent in size */
+        height: clamp(360px, 68vh, 800px);
+        overflow: hidden;
+        border-radius: 16px;
+        background: #000;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35),
+          0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+      }
+
+      #video,
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .hud {
+        position: absolute;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 700;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .top-left {
+        top: 18px;
+        left: 18px;
+      }
+      .top-right {
+        top: 18px;
+        right: 18px;
+      }
+
+      .status-indicator {
+        position: absolute;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      #feedback {
+        position: absolute;
+        bottom: 96px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 14px;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+        display: none;
+        z-index: 20;
+        white-space: nowrap;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(4px);
+      }
+
+      .quality-indicator {
+        position: absolute;
+        bottom: 56px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 12px;
+        font-weight: 700;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      .quality-good {
+        background: rgba(16, 185, 129, 0.75);
+      } /* emerald */
+      .quality-warning {
+        background: rgba(251, 191, 36, 0.8);
+      } /* amber */
+      .quality-poor {
+        background: rgba(239, 68, 68, 0.8);
+      } /* red */
+
+      /* controls — blue/green buttons */
+      .controls {
+        width: min(1200px, 100%);
+        margin: 0 auto;
+        padding: 12px;
+        background: rgba(3, 7, 18, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      }
+
+      .controls button {
+        background: linear-gradient(45deg, var(--btn-a), var(--btn-b));
+        color: white;
+        border: none;
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        letter-spacing: 0.2px;
+        box-shadow: 0 8px 18px rgba(16, 185, 129, 0.25);
+        transition: transform 0.12s ease, opacity 0.12s ease, filter 0.12s ease;
+      }
+      .controls button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.05);
+      }
+      .controls button:active {
+        transform: translateY(0);
+        filter: brightness(0.98);
+      }
+
+      .timer {
+        color: white;
+        font-weight: 800;
+        margin-left: auto;
+      }
+
+      /* stat boxes */
+      .slr-stats {
+        width: min(1200px, 100%);
+        margin: 0 auto 8px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        padding: 12px;
+        background: rgba(3, 7, 18, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        backdrop-filter: blur(6px);
+      }
+
+      .stat-box {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 14px 16px;
+        min-width: 160px;
+        text-align: center;
+        color: #eaf7ff;
+      }
+
+      .stat-label {
+        font-size: 0.9rem;
+        color: #cde9f6;
+        opacity: 0.9;
+      }
+
+      .stat-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: white;
+        margin-top: 4px;
+        text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+      }
+
+      /* win screen */
+      #winScreen {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(2, 6, 23, 0.9);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(4px);
+      }
+
+      .win-content {
+        background: linear-gradient(
+          135deg,
+          rgba(14, 165, 233, 0.2),
+          rgba(16, 185, 129, 0.2)
+        );
+        border-radius: 18px;
+        padding: 28px;
+        max-width: 620px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #fff;
+      }
+
+      .win-title {
+        font-size: 2.4rem;
+        margin-bottom: 16px;
+        text-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+      }
+
+      .time-display,
+      .best-time-display {
+        font-size: 1.4rem;
+        margin: 10px 0;
+      }
+
+      .best-time-display {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .record-badge {
+        background: #22d3ee;
+        color: #0b1220;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-weight: 800;
+        font-size: 0.95rem;
+      }
+
+      #starsContainer {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+
+      #starsContainer span {
+        font-size: 2.2rem;
+        animation: starPulse 1.5s infinite alternate;
+      }
+
+      @keyframes starPulse {
+        from {
+          transform: scale(1);
+        }
+        to {
+          transform: scale(1.18);
+        }
+      }
+
+      .win-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 18px;
+        flex-wrap: wrap;
+      }
+
+      .win-buttons button {
+        padding: 12px 22px;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #fff;
+      }
+
+      .play-again-btn {
+        background: linear-gradient(45deg, var(--btn-a), var(--btn-b));
+      }
+
+      .next-btn {
+        background: linear-gradient(45deg, #1e90ff, #00bfff);
+      }
+
+      .win-buttons button:hover {
+        transform: translateY(-2px);
+        filter: brightness(1.05);
+      }
+      .win-buttons button:active {
+        transform: translateY(0);
+        filter: brightness(0.98);
+      }
+
+      /* Camera selection in controls */
+      .camera-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .camera-select {
+        background: rgba(0, 0, 0, 0.55);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        padding: 8px 10px;
+        max-width: 220px;
+      }
+
+      /* Added new style for angle visualization (kept for parity) */
+      .angle-line {
+        position: absolute;
+        background-color: rgba(0, 255, 255, 0.7);
+        height: 3px;
+        transform-origin: 0 0;
+        z-index: 15;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .dashboard-overlay {
+          top: 10px;
+          left: 10px;
+          padding: 10px;
+        }
+        .video-wrapper {
+          height: clamp(320px, 58vh, 620px);
+          border-radius: 14px;
+        }
+        .controls {
+          border-radius: 12px;
+        }
+        .slr-stats {
+          border-radius: 12px;
+        }
+        .win-content {
+          padding: 22px;
+          border-radius: 16px;
+        }
+        .win-buttons button {
+          width: 100%;
+          justify-content: center;
+        }
+        .camera-control {
+          width: 100%;
+          justify-content: center;
+        }
+        .camera-select {
+          max-width: 100%;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ───── DASHBOARD OVERLAY ───── -->
+    <div class="dashboard-overlay">
+      <div class="dashboard-item">
+        <a class="back-button" href="/dashboard.html">
+          <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+      </div>
+      <div class="dashboard-item star-display">
+        <i class="fas fa-star"></i> Stars: <span id="starBalance">0</span>
+      </div>
+    </div>
+
+    <!-- ───── MAIN AREA ───── -->
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+
+        <div class="hud top-left" id="angleDisplay">Angle: --°</div>
+        <div class="hud top-right" id="counterDisplay">Raises: 0</div>
+
+        <div class="status-indicator" id="statusIndicator"></div>
+        <div id="feedback"></div>
+
+        <div id="qualityIndicator" class="quality-indicator quality-good">
+          Perfect Form ✅
+        </div>
+      </div>
+
+      <!-- controls -->
+      <div class="controls">
+        <button id="startBtn">
+          <i class="fas fa-play"></i> Start Tracking
+        </button>
+        <button id="resetBtn"><i class="fas fa-redo"></i> Reset Count</button>
+        <button id="calibrateBtn"><i class="fas fa-cog"></i> Calibrate</button>
+        <button onclick="location.href='eptsel.html'">
+          Return to Selection Screen
+        </button>
+
+        <div class="camera-control">
+          <label for="cameraSelect">Camera:</label>
+          <select id="cameraSelect" class="camera-select"></select>
+        </div>
+
+        <div class="timer">⏱️ Time: <span id="sessionTime">0</span>s</div>
+      </div>
+
+      <!-- stat boxes -->
+      <div class="slr-stats">
+        <div class="stat-box">
+          <div class="stat-label">Raise Count</div>
+          <div class="stat-value" id="raiseCount">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Current State</div>
+          <div class="stat-value" id="state">ready</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Leg Angle</div>
+          <div class="stat-value" id="legAngle">--°</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Target Angle</div>
+          <div class="stat-value" id="threshold">40°</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- win screen -->
+    <div id="winScreen" style="display: none">
+      <div class="win-content">
+        <h1 class="win-title">Exercise Complete!</h1>
+        <div class="time-display">Time: <span id="finalTime">00:00</span></div>
+        <div class="best-time-display">
+          Best Time: <span id="bestTime">--:--</span>
+          <span class="record-badge" style="display: none">New Record!</span>
+        </div>
+        <div id="starsContainer" style="margin: 1rem 0"></div>
+        <div class="win-buttons">
+          <button class="play-again-btn" onclick="playAgain()">
+            <i class="fas fa-redo"></i> Play Again
+          </button>
+          <button class="next-btn" onclick="nextLevel()">
+            Next <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mediapipe -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+      crossorigin="anonymous"
+    ></script>
+
+    <!-- ───── CORE SCRIPT (UNCHANGED RECOGNITION) ───── -->
+    <script>
+      /* ----------- Constants for leg-only drawing ----------- */
+      const LEG_CONNECTIONS = [
+        [23, 25],
+        [25, 27],
+        [27, 29],
+        [29, 31], // left
+        [24, 26],
+        [26, 28],
+        [28, 30],
+        [30, 32], // right
+      ];
+      const LEG_LANDMARKS = [23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
+
+      /* ----------- Local-storage helpers ----------- */
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+      const CAM_KEY = "nf_selectedCamera";
+
+      const readDB = () => JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+      const writeDB = (db) =>
+        localStorage.setItem(USERS_KEY, JSON.stringify(db));
+      const currentUser = () => localStorage.getItem(USER_KEY);
+
+      /* ======================================================
+         CLASS : StraightLegRaiseTracker
+      ====================================================== */
+      class StraightLegRaiseTracker {
+        constructor() {
+          /* ----------- configuration from eptsel.html ----------- */
+          const cfg = JSON.parse(localStorage.getItem("exerciseMode") || "{}");
+
+          /* reps & angle thresholds come from cfg */
+          this.targetReps = cfg.reps || 10;
+          this.targetAngle = 40; // Target angle for leg raise (changed to 40°)
+          this.downAngle = 10; // Angle to consider leg lowered
+          this.historySize = 8;
+          this.smoothing = 0.55;
+
+          /* ----------- DOM handles ----------- */
+          this.video = document.getElementById("video");
+          this.canvas = document.getElementById("canvas");
+          this.ctx = this.canvas.getContext("2d");
+
+          /* ----------- initial state ----------- */
+          this.raiseCount = 0;
+          this.isTracking = false;
+          this.legState = "down";
+          this.lastValidRaise = 0;
+          this.legAngleHistory = [];
+
+          /* show chosen threshold in HUD */
+          document.getElementById("threshold").textContent =
+            this.targetAngle + "°";
+
+          /* ----------- Mediapipe Pose ----------- */
+          this.pose = new Pose({
+            locateFile: (f) =>
+              `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`,
+          });
+          this.pose.setOptions({
+            modelComplexity: 2,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7,
+          });
+          this.pose.onResults((r) => this.onResults(r));
+
+          /* ----------- UI / Camera / Stars ----------- */
+          this.bindEvents();
+          this.startSession();
+          this.loadStars();
+          this.setupCamera();
+        }
+
+        /* ---------------- Star helpers ---------------- */
+        loadStars() {
+          const u = currentUser();
+          const db = readDB();
+          document.getElementById("starBalance").textContent =
+            u && db[u] ? db[u].stars || 0 : 0;
+        }
+
+        addStars(n = 1) {
+          const u = currentUser();
+          if (!u) return;
+          const db = readDB();
+          if (!db[u]) db[u] = { stars: 0 };
+          db[u].stars = (db[u].stars || 0) + n;
+          writeDB(db);
+          document.getElementById("starBalance").textContent = db[u].stars;
+        }
+
+        /* ---------------- Camera picker ---------------- */
+        async setupCamera() {
+          const sel = document.getElementById("cameraSelect");
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const cams = devs.filter((d) => d.kind === "videoinput");
+          sel.innerHTML = "";
+          cams.forEach((d, i) => {
+            const o = document.createElement("option");
+            o.value = d.deviceId;
+            o.textContent = d.label || `Camera ${i + 1}`;
+            sel.appendChild(o);
+          });
+          const saved = localStorage.getItem(CAM_KEY) || cams[0]?.deviceId;
+          sel.value = saved;
+          sel.onchange = (e) => {
+            localStorage.setItem(CAM_KEY, e.target.value);
+            this.openStream(e.target.value);
+          };
+          this.openStream(saved);
+        }
+
+        async openStream(id) {
+          if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+          try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: id },
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+              },
+              audio: false,
+            });
+            this.video.srcObject = this.stream;
+            await this.video.play();
+            if (!this.raf) this.poseLoop();
+          } catch (e) {
+            alert("Camera error: " + e.message);
+            console.error(e);
+          }
+        }
+
+        poseLoop() {
+          const step = async () => {
+            if (this.isTracking && this.video.readyState >= 2) {
+              await this.pose.send({ image: this.video });
+            }
+            this.raf = requestAnimationFrame(step);
+          };
+          step();
+        }
+
+        /* ---------------- UI events ---------------- */
+        bindEvents() {
+          document.getElementById("startBtn").onclick = () => this.toggle();
+          document.getElementById("resetBtn").onclick = () => this.reset();
+          document.getElementById("calibrateBtn").onclick = () =>
+            alert(
+              "Lie down flat and perform a leg raise to 45 degrees for calibration."
+            );
+          window.addEventListener("storage", () => this.loadStars());
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) this.loadStars();
+          });
+        }
+
+        /* ---------------- Timer ---------------- */
+        startSession() {
+          this.start = Date.now();
+          this.timer = setInterval(() => {
+            document.getElementById("sessionTime").textContent = Math.floor(
+              (Date.now() - this.start) / 1000
+            );
+          }, 1000);
+        }
+
+        /* ---------------- Tracking controls ---------------- */
+        toggle() {
+          this.isTracking = !this.isTracking;
+          const btn = document.getElementById("startBtn");
+          btn.innerHTML = this.isTracking
+            ? "⏸️ Stop Tracking"
+            : '<i class="fas fa-play"></i> Start Tracking';
+          /* keep on-brand colors (UI-only change) */
+          btn.style.background = this.isTracking
+            ? "linear-gradient(45deg, var(--btn-active-a), var(--btn-active-b))"
+            : "linear-gradient(45deg, var(--btn-a), var(--btn-b))";
+        }
+
+        reset() {
+          this.raiseCount = 0;
+          this.legState = "down";
+          this.legAngleHistory = [];
+          this.updateHUD();
+        }
+
+        /* ---------------- Pose results ---------------- */
+        onResults(res) {
+          this.draw(res);
+          if (res.poseLandmarks && this.isTracking) {
+            const a = this.analyse(res.poseLandmarks);
+            this.stateMachine(a);
+            this.updateHUD(a);
+          }
+        }
+
+        /* ---------------- Geometry ---------------- */
+        calculateLegAngle(hipDown, kneeDown, hipRaised, kneeRaised) {
+          const vecDown = {
+            x: kneeDown.x - hipDown.x,
+            y: kneeDown.y - hipDown.y,
+          };
+          const vecUp = {
+            x: kneeRaised.x - hipRaised.x,
+            y: kneeRaised.y - hipRaised.y,
+          };
+          const dot = vecDown.x * vecUp.x + vecDown.y * vecUp.y;
+          const magDown = Math.hypot(vecDown.x, vecDown.y);
+          const magUp = Math.hypot(vecUp.x, vecUp.y);
+          const cosTheta = dot / (magDown * magUp);
+          return (
+            (Math.acos(Math.min(Math.max(cosTheta, -1), 1)) * 180) / Math.PI
+          );
+        }
+
+        smooth(v, arr) {
+          arr.push(v);
+          if (arr.length > this.historySize) arr.shift();
+          let wSum = 0,
+            wTot = 0;
+          arr.forEach((x, i) => {
+            const w = Math.pow(this.smoothing, arr.length - 1 - i);
+            wSum += x * w;
+            wTot += w;
+          });
+          return wSum / wTot;
+        }
+
+        analyse(lm) {
+          const hipDown = lm[24]; // Right hip (grounded)
+          const kneeDown = lm[26]; // Right knee
+          const hipRaised = lm[23]; // Left hip
+          const kneeRaised = lm[25]; // Left knee
+          if (!hipDown || !kneeDown || !hipRaised || !kneeRaised) {
+            return { angle: 0, conf: 0 };
+          }
+          const angle = this.calculateLegAngle(
+            hipDown,
+            kneeDown,
+            hipRaised,
+            kneeRaised
+          );
+          const smoothedAngle = this.smooth(angle, this.legAngleHistory);
+          return {
+            angle: smoothedAngle,
+            conf: Math.min(
+              hipDown.visibility || 0,
+              kneeDown.visibility || 0,
+              hipRaised.visibility || 0,
+              kneeRaised.visibility || 0
+            ),
+          };
+        }
+
+        /* ---------------- Finite-state machine ---------------- */
+        stateMachine(a) {
+          if (a.conf < 0.4) {
+            this.quality("poor");
+            return;
+          }
+
+          /* Direct angle check without hold requirement */
+          if (this.legState === "down" && a.angle >= this.targetAngle) {
+            this.legState = "up";
+            this.completeRaise();
+            this.flash("Good rep! 👍");
+          } else if (
+            this.legState === "up" &&
+            a.angle < this.targetAngle * 0.7
+          ) {
+            this.legState = "down";
+            this.flash("Lowered, ready for next rep");
+          }
+
+          if (a.angle >= this.targetAngle) {
+            this.quality("good");
+          } else if (a.angle >= this.targetAngle * 0.7) {
+            this.quality("warning");
+          } else {
+            this.quality("good");
+          }
+        }
+
+        completeRaise() {
+          this.raiseCount += 1;
+          this.addStars();
+          this.flash("Perfect raise! 🎉");
+
+          if (this.raiseCount >= this.targetReps) {
+            this.finish();
+          }
+        }
+
+        /* ---------------- Finish session ---------------- */
+        finish() {
+          clearInterval(this.timer);
+          const total = Date.now() - this.start;
+
+          document.getElementById("finalTime").textContent = this.fmt(total);
+
+          const best = parseInt(localStorage.getItem("bestSLRTime") || 1e9, 10);
+          if (total < best) {
+            localStorage.setItem("bestSLRTime", total);
+            document.querySelector(".record-badge").style.display = "inline";
+          }
+          document.getElementById("bestTime").textContent = this.fmt(
+            Math.min(best, total)
+          );
+
+          const box = document.getElementById("starsContainer");
+          box.innerHTML = "";
+          for (let i = 0; i < this.raiseCount; i += 1) {
+            const s = document.createElement("span");
+            s.textContent = "🌟";
+            s.style.fontSize = "2rem";
+            box.appendChild(s);
+          }
+
+          try {
+            const h = JSON.parse(
+              localStorage.getItem("therapySessions") || "[]"
+            );
+            h.push({
+              date: new Date().toISOString(),
+              mode: "normal",
+              game: "Straight Leg Raise",
+              duration: Math.round(total / 1000),
+            });
+            localStorage.setItem("therapySessions", JSON.stringify(h));
+          } catch (e) {
+            console.warn("history save failed", e);
+          }
+
+          document.getElementById("winScreen").style.display = "flex";
+          this.isTracking = false;
+          document.getElementById("startBtn").innerHTML =
+            '<i class="fas fa-play"></i> Start Tracking';
+        }
+
+        fmt(ms) {
+          const s = Math.floor(ms / 1000);
+          const m = Math.floor(s / 60);
+          return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(
+            2,
+            "0"
+          )}`;
+        }
+
+        /* ---------------- Visual helpers ---------------- */
+        quality(q) {
+          const el = document.getElementById("qualityIndicator");
+          if (q === "good") {
+            el.textContent = "Good Form ✅";
+            el.className = "quality-indicator quality-good";
+          } else if (q === "warning") {
+            el.textContent = "Minor Form Issue ⚠️";
+            el.className = "quality-indicator quality-warning";
+          } else {
+            el.textContent = "Can't See Leg ❌ (Move into view)";
+            el.className = "quality-indicator quality-poor";
+          }
+        }
+
+        flash(msg, duration = 2000) {
+          const f = document.getElementById("feedback");
+          f.textContent = msg;
+          f.style.display = "block";
+          setTimeout(() => {
+            f.style.display = "none";
+          }, duration);
+        }
+
+        /* ---------------- Drawing ---------------- */
+        draw(res) {
+          const c = this.canvas;
+          const ctx = this.ctx;
+          c.width = this.video.videoWidth || 640;
+          c.height = this.video.videoHeight || 480;
+          ctx.clearRect(0, 0, c.width, c.height);
+
+          /* mirror feed */
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.drawImage(this.video, -c.width, 0, c.width, c.height);
+          ctx.restore();
+
+          if (res.poseLandmarks) {
+            this.drawSkeleton(res.poseLandmarks);
+          }
+        }
+
+        drawSkeleton(lm) {
+          const c = this.canvas;
+          const ctx = this.ctx;
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.translate(-c.width, 0);
+
+          /* legs only */
+          drawConnectors(ctx, lm, LEG_CONNECTIONS, {
+            color: "#00FFAA",
+            lineWidth: 4,
+          });
+          drawLandmarks(
+            ctx,
+            LEG_LANDMARKS.map((i) => lm[i]),
+            { color: "#FF0077", fillColor: "#FF0077", radius: 6 }
+          );
+
+          ctx.restore();
+        }
+
+        /* ---------------- HUD update ---------------- */
+        updateHUD(a = null) {
+          document.getElementById("raiseCount").textContent = this.raiseCount;
+          document.getElementById(
+            "counterDisplay"
+          ).textContent = `Raises: ${this.raiseCount}`;
+          document.getElementById("state").textContent = this.legState;
+
+          if (a) {
+            document.getElementById(
+              "angleDisplay"
+            ).textContent = `Angle: ${Math.round(a.angle)}°`;
+            document.getElementById("legAngle").textContent = `${Math.round(
+              a.angle
+            )}°`;
+          }
+        }
+      }
+
+      /* ----------- Life-cycle boot ----------- */
+      window.addEventListener("load", () => new StraightLegRaiseTracker());
+
+      function playAgain() {
+        document.getElementById("winScreen").style.display = "none";
+        location.reload();
+      }
+
+      function nextLevel() {
+        document.getElementById("winScreen").style.display = "none";
+      }
+    </script>
+  </body>
+</html>

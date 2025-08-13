@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <!-- [Previous head section remains exactly the same] -->
+  <body>
+    <!-- [All previous HTML remains exactly the same until the script section] -->
+
+    <script>
+      /* ===== LANGUAGE TOGGLE FUNCTIONALITY ===== */
+      // [Previous translations object remains exactly the same]
+
+      // Game variables
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      let gameRunning = false;
+      let gameStarted = false; // New variable to track if game has started
+      let score = 0;
+      let bestScore = localStorage.getItem("bestScore") || 0;
+      document.getElementById("bestScore").textContent = bestScore;
+
+      // [Previous user/stars code remains the same]
+
+      let animationFrameId;
+      let lastFrameTime = 0;
+      const fps = 60;
+      const frameInterval = 1000 / fps;
+      let gameStartTime = 0;
+
+      // [Previous Arduino variables remain the same]
+
+      // Bird variables - added initialY to remember starting position
+      const bird = {
+        x: 50,
+        y: canvas.height / 2,
+        initialY: canvas.height / 2, // Store initial position
+        width: 40,
+        height: 30,
+        velocity: 0,
+        gravity: 0.1,
+        jump: -5,
+        rotation: 0,
+        wingAngle: 0,
+        flapSpeed: 0.15,
+        frozen: true // Added frozen state
+      };
+
+      // [Rest of the pipe, cloud variables remain the same]
+
+      // [Previous event listeners remain the same until the serial data reading]
+
+      async function readSerialData() {
+        try {
+          while (arduinoConnected) {
+            const { value, done } = await reader.read();
+            if (done) {
+              reader.releaseLock();
+              break;
+            }
+
+            const text = new TextDecoder().decode(value);
+            const lines = text.trim().split("\n");
+
+            for (const line of lines) {
+              if (line) {
+                const parsedValue = parseInt(line);
+
+                if (!isNaN(parsedValue)) {
+                  const displayValue = Math.min(1023, Math.max(0, parsedValue));
+
+                  // Update calibration if in progress
+                  if (isCalibrating) {
+                    updateCalibrationProgress(displayValue);
+                  }
+
+                  // Calculate percentage based on calibrated max value
+                  const percentage = Math.round(
+                    (displayValue / maxFsrValue) * 100
+                  );
+
+                  sensorValue.textContent = displayValue;
+
+                  const pressureBar = document.getElementById("pressureBar");
+                  const pressureValue =
+                    document.getElementById("pressureValue");
+                  pressureBar.style.width = `${percentage}%`;
+                  pressureValue.textContent = percentage;
+
+                  // Change color based on therapy threshold (70% of max)
+                  if (percentage >= 70) {
+                    pressureBar.className =
+                      "pressure-bar h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full";
+                    
+                    // Start the game if not started and not in calibration
+                    if (!gameStarted && !isCalibrating) {
+                      startGame();
+                    }
+                    
+                    // Restart the game if game over and not in calibration
+                    if (!gameRunning && gameOverModal.classList.contains("hidden") === false && !isCalibrating) {
+                      startGame();
+                    }
+                  } else {
+                    pressureBar.className =
+                      "pressure-bar h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full";
+                  }
+
+                  // Trigger bird flap if pressure crosses therapy threshold
+                  if (
+                    gameRunning &&
+                    percentage >= 70 &&
+                    displayValue - lastFsrValue > 0 // Only trigger on increasing pressure
+                  ) {
+                    bird.velocity = bird.jump;
+                    bird.wingAngle = 20;
+                  }
+                  lastFsrValue = displayValue;
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Serial read error:", err);
+          disconnectArduino();
+        }
+      }
+
+      // [Previous disconnectArduino function remains the same]
+
+      // Game functions - modified startGame
+      function startGame() {
+        // If game is already running, do nothing
+        if (gameRunning) return;
+        
+        // Hide modals
+        instructionsModal.classList.add("hidden");
+        gameOverModal.classList.add("hidden");
+        
+        // Reset game state
+        gameRunning = true;
+        gameStarted = true;
+        gameStartTime = Date.now();
+        score = 0;
+        bird.y = bird.initialY;
+        bird.velocity = 0;
+        bird.rotation = 0;
+        bird.wingAngle = 0;
+        bird.frozen = false; // Unfreeze the bird
+        pipes.length = 0;
+        lastPipeTime = 0;
+        document.getElementById("currentScore").textContent = score;
+
+        lastFrameTime = performance.now();
+        gameLoop();
+      }
+
+      // Modified endGame function
+      function endGame() {
+        gameRunning = false;
+        gameStarted = false;
+        bird.frozen = true; // Freeze the bird
+
+        if (score > bestScore) {
+          bestScore = score;
+          localStorage.setItem("bestScore", bestScore);
+          document.getElementById("bestScore").textContent = bestScore;
+        }
+
+        saveSessionStats();
+
+        document.getElementById("finalScore").textContent = score;
+        document.getElementById("finalBestScore").textContent = bestScore;
+        gameOverModal.classList.remove("hidden");
+      }
+
+      // [Previous saveSessionStats remains the same]
+
+      // Modified gameLoop
+      function gameLoop(timestamp) {
+        if (!gameRunning) return;
+
+        const deltaTime = timestamp - lastFrameTime;
+        if (deltaTime < frameInterval) {
+          animationFrameId = requestAnimationFrame(gameLoop);
+          return;
+        }
+        lastFrameTime = timestamp - (deltaTime % frameInterval);
+
+        update();
+        render();
+
+        animationFrameId = requestAnimationFrame(gameLoop);
+      }
+
+      // Modified update function
+      function update() {
+        // Only update bird if not frozen
+        if (!bird.frozen) {
+          bird.velocity += bird.gravity;
+          bird.y += bird.velocity;
+          bird.rotation = bird.velocity * 0.1;
+          bird.wingAngle = Math.sin(Date.now() * bird.flapSpeed) * 15;
+
+          if (bird.y + bird.height > canvas.height || bird.y < 0) {
+            endGame();
+          }
+        }
+
+        // Update pipes and clouds regardless of frozen state
+        const currentTime = Date.now();
+        if (currentTime - lastPipeTime > pipeInterval && !bird.frozen) {
+          createPipe();
+          lastPipeTime = currentTime;
+        }
+
+        for (let i = pipes.length - 1; i >= 0; i--) {
+          pipes[i].x -= 3;
+
+          if (!pipes[i].passed && bird.x > pipes[i].x + pipeWidth && !bird.frozen) {
+            pipes[i].passed = true;
+            score++;
+            document.getElementById("currentScore").textContent = score;
+
+            // Update stars
+            const user = localStorage.getItem("nf_loggedInUser");
+            const users = JSON.parse(localStorage.getItem("nf_users") || "{}");
+            if (users[user]) {
+              users[user].stars = (users[user].stars || 0) + 1;
+              localStorage.setItem("nf_users", JSON.stringify(users));
+              document.getElementById("starDisplay").textContent =
+                users[user].stars;
+            }
+          }
+
+          if (
+            !bird.frozen &&
+            bird.x < pipes[i].x + pipeWidth &&
+            bird.x + bird.width > pipes[i].x &&
+            (bird.y < pipes[i].topHeight ||
+              bird.y + bird.height > pipes[i].topHeight + pipeGap)
+          ) {
+            endGame();
+          }
+
+          if (pipes[i].x + pipeWidth < 0) {
+            pipes.splice(i, 1);
+          }
+        }
+
+        for (let i = 0; i < clouds.length; i++) {
+          clouds[i].x -= clouds[i].speed;
+          if (clouds[i].x + clouds[i].width < 0) {
+            clouds[i].x = canvas.width;
+            clouds[i].y = Math.random() * canvas.height * 0.4;
+          }
+        }
+      }
+
+      // [Previous createPipe, drawBird, render functions remain the same]
+
+      // Initialize with a rendered canvas
+      render();
+
+      // Add "Squeeze to Start" text when initializing
+      ctx.fillStyle = "#000";
+      ctx.font = "bold 24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        translations[document.documentElement.lang].squeezeToStart || 
+        "Squeeze Gripper to Start",
+        canvas.width / 2,
+        canvas.height / 2
+      );
+    </script>
+  </body>
+</html>

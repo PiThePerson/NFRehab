@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memory Match - Multiplayer Mode</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../css/pts.css" />
+    <link rel="stylesheet" href="../../css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+
+    <!-- MediaPipe libs -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <style>
+      /* Dashboard styling - floating left overlay */
+      .dashboard-overlay {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 10px;
+        padding: 15px;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        backdrop-filter: blur(5px);
+      }
+
+      .dashboard-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .back-button {
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      .star-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      /* Team win styling */
+      .blue-win {
+        color: #0000ff;
+        font-weight: bold;
+        text-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
+      }
+      .red-win {
+        color: #ff0000;
+        font-weight: bold;
+        text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+      }
+      .team-win {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      /* Main container layout */
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .video-wrapper {
+        position: relative;
+        flex-grow: 1;
+        overflow: hidden;
+      }
+
+      #video,
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .controls {
+        padding: 1rem;
+        background-color: rgba(52, 73, 94, 0.7);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .game-info {
+        display: flex;
+        gap: 1rem;
+        margin-left: auto;
+        color: white;
+      }
+
+      /* Timer styles - modified as requested */
+      #timeDisplay {
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      #sessionTime {
+        font-weight: bold;
+        min-width: 30px;
+        text-align: right;
+      }
+
+      .time-alert {
+        color: #ff0000;
+        animation: pulse 0.5s infinite alternate;
+      }
+
+      @keyframes pulse {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0.7;
+        }
+      }
+
+      /* Timer tube styles - modified to remove grid and move higher */
+      .timer-tube {
+        position: fixed;
+        right: 20px;
+        top: 80px; /* Moved down from top:20px */
+        width: 60px;
+        height: 60vh; /* Reduced from 70vh */
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 30px;
+        border: 3px solid rgba(255, 255, 255, 0.5);
+        overflow: hidden;
+        z-index: 50;
+        display: flex;
+        flex-direction: column-reverse;
+      }
+
+      .timer-liquid {
+        width: 100%;
+        background: linear-gradient(to top, #4caf50, #8bc34a);
+        transition: height 0.5s ease-out;
+      }
+
+      /* Time warning popups */
+      .time-warning-popup {
+        position: fixed;
+        right: 100px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255, 0, 0, 0.8);
+        color: white;
+        font-size: 5rem;
+        font-weight: bold;
+        padding: 20px 40px;
+        border-radius: 10px;
+        z-index: 100;
+        animation: popIn 0.3s ease-out;
+        display: none;
+      }
+
+      @keyframes popIn {
+        0% {
+          transform: translateY(-50%) scale(0.5);
+          opacity: 0;
+        }
+        80% {
+          transform: translateY(-50%) scale(1.1);
+        }
+        100% {
+          transform: translateY(-50%) scale(1);
+          opacity: 1;
+        }
+      }
+
+      .countdown-popup {
+        position: fixed;
+        right: 100px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #ff0000;
+        font-size: 4rem;
+        font-weight: bold;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        z-index: 100;
+        display: none;
+      }
+
+      /* Win screen styles */
+      #winScreen {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        color: white;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+      }
+
+      .win-content {
+        background: rgba(0, 0, 0, 0.7);
+        padding: 2rem;
+        border-radius: 15px;
+        max-width: 600px;
+        width: 90%;
+      }
+
+      .win-title {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+      }
+
+      .trophy-glow {
+        font-size: 4rem;
+        color: gold;
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Dashboard Overlay -->
+    <div class="dashboard-overlay">
+      <div class="dashboard-item">
+        <a href="/dashboard.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+      </div>
+      <div class="dashboard-item star-display" id="starCount">
+        <i class="fas fa-star"></i>
+        <span id="starBalance">0</span> Stars
+      </div>
+    </div>
+
+    <!-- Timer Tube - Simplified without markers -->
+    <div class="timer-tube" id="timerTube">
+      <div class="timer-liquid" id="timerLiquid"></div>
+    </div>
+
+    <!-- Time Warning Popups -->
+    <div class="time-warning-popup" id="timeWarning10">10 SECONDS!</div>
+    <div class="time-warning-popup" id="timeWarning5">5 SECONDS!</div>
+
+    <!-- Countdown Popup -->
+    <div class="countdown-popup" id="countdownPopup"></div>
+
+    <!-- Main Layout -->
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn"><i class="fas fa-play"></i> Start Game</button>
+        <button onclick="window.location.href='mmsel.html'">
+          Change Settings
+        </button>
+        <label for="cameraSelect" style="margin-left: 1rem">Camera:</label>
+        <select id="cameraSelect"></select>
+        <div class="game-info">
+          <div id="timeDisplay">Time <span id="sessionTime">0</span>s</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Win Screen -->
+    <div id="winScreen">
+      <div class="win-content">
+        <div class="trophy-glow">
+          <i class="fas fa-trophy"></i>
+        </div>
+        <div class="win-title" id="winTitle">MISSION COMPLETE!</div>
+        <div class="team-win" id="teamWinDisplay"></div>
+        <div class="stats-container">
+          <div class="stat-row">
+            <span class="stat-label">Time:</span>
+            <span class="stat-value" id="winTimeDisplay">0s</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Time Limit:</span>
+            <span class="stat-value" id="timeLimitWinDisplay">0s</span>
+          </div>
+        </div>
+        <div class="win-buttons" style="margin-top: 2rem">
+          <button
+            onclick="window.location.href='/dashboard.html'"
+            style="margin: 0.5rem"
+          >
+            <i class="fas fa-home"></i> Home
+          </button>
+          <button id="playAgainBtn" style="margin: 0.5rem">
+            <i class="fas fa-redo"></i> Play Again
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lose Screen -->
+    <div
+      id="loseScreen"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        color: white;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        text-align: center;
+      "
+    >
+      <div style="font-size: 3rem; margin-bottom: 1rem">
+        <i class="fas fa-clock" style="color: #ff0000"></i>
+      </div>
+      <div
+        style="font-size: 2.5rem; font-weight: bold; margin-bottom: 1rem"
+        id="loseTitle"
+      >
+        MISSION FAILED!
+      </div>
+      <div style="font-size: 1.5rem; margin-bottom: 2rem" id="loseMessage">
+        Both teams failed to complete their cards in time!
+      </div>
+      <div style="display: flex; gap: 1rem">
+        <button
+          style="
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            background: #4a5568;
+            color: white;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+          "
+          onclick="window.location.href='/dashboard.html'"
+        >
+          <i class="fas fa-home"></i> Home
+        </button>
+        <button
+          style="
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            background: #3182ce;
+            color: white;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+          "
+          id="tryAgainBtn"
+        >
+          <i class="fas fa-redo"></i> Try Again
+        </button>
+      </div>
+    </div>
+
+    <!-- Memorize Overlay -->
+    <div
+      id="memorizeOverlay"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 3rem;
+        font-weight: bold;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 999;
+        padding: 20px;
+      "
+    >
+      Work together!<br />
+      Complete both card sets<br />
+      before time runs out
+    </div>
+
+    <!-- Countdown overlay -->
+    <div
+      id="countdown"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 10rem;
+        font-weight: bold;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 999;
+      "
+    ></div>
+
+    <!-- Audio elements -->
+    <audio
+      id="warningSound"
+      src="https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3"
+    ></audio>
+    <audio
+      id="countdownSound"
+      src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-explosion-2759.mp3"
+    ></audio>
+
+    <script>
+      /* STAR-BALANCE SYNC */
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+
+      function refreshStars() {
+        const u = localStorage.getItem(USER_KEY);
+        const db = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+        if (!u || !db[u]) {
+          window.location.href = "/login.html";
+          return;
+        }
+
+        if (!db[u].bestTimes) {
+          db[u].bestTimes = {};
+          localStorage.setItem(USERS_KEY, JSON.stringify(db));
+        }
+
+        document.getElementById("starBalance").textContent = db[u].stars ?? 0;
+      }
+      refreshStars();
+      window.addEventListener("storage", refreshStars);
+      window.addEventListener("focus", refreshStars);
+
+      /* GLOBALS */
+      const videoElement = document.getElementById("video");
+      const canvasElement = document.getElementById("canvas");
+      const ctx = canvasElement.getContext("2d");
+
+      const user = localStorage.getItem(USER_KEY);
+      const users = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+
+      canvasElement.width = window.innerWidth;
+      canvasElement.height = window.innerHeight;
+
+      // Get grid settings
+      const storedSettings = JSON.parse(
+        localStorage.getItem("memoryMatchMultiplayerSettings") || "{}"
+      );
+      let cardRows = storedSettings.rows || 4;
+      let cardCols = storedSettings.cols || 1;
+
+      // Game settings
+      const CARD_WIDTH = 180;
+      const CARD_HEIGHT = 220;
+      const CARD_MARGIN = 20;
+      const GAP_BETWEEN_SIDES = 100;
+      const FLIP_HOLD_TIME = 1500;
+      const FLIP_DURATION = 600;
+      const PREVIEW_DURATION = 2000;
+
+      // Shapes
+      const leftShapes = ["circle", "square", "triangle", "diamond"];
+      const rightShapes = ["star", "hex", "pentagon", "cross"];
+
+      // Time limits
+      const TIME_LIMITS = {
+        "4x1": 15,
+        "4x2": 45,
+        "3x2": 30,
+        "2x3": 30,
+      };
+
+      // Sound effects
+      const warningSound = document.getElementById("warningSound");
+      const countdownSound = document.getElementById("countdownSound");
+
+      /* Card class */
+      class Card {
+        constructor(x, y, shape, side) {
+          this.x = x;
+          this.y = y;
+          this.shape = shape;
+          this.side = side;
+          this.isFlipped = false;
+          this.isMatched = false;
+          this.hoverStart = null;
+          this.flipProgress = 1;
+          this.targetFaceUp = false;
+          this.flipStart = null;
+        }
+
+        startFlip(faceUp) {
+          if (this.targetFaceUp === faceUp && this.flipStart === null) return;
+          this.targetFaceUp = faceUp;
+          this.flipStart = performance.now();
+        }
+
+        tickFlip(now) {
+          if (this.flipStart === null) return false;
+          const t = Math.min((now - this.flipStart) / FLIP_DURATION, 1);
+          const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          this.flipProgress = this.targetFaceUp ? 1 - eased : eased;
+          if (t === 1) {
+            this.flipStart = null;
+            this.isFlipped = this.targetFaceUp;
+          }
+          return true;
+        }
+
+        draw(ctx) {
+          ctx.save();
+
+          const angle = (1 - this.flipProgress) * Math.PI;
+          ctx.translate(this.x + CARD_WIDTH / 2, this.y);
+          ctx.scale(Math.cos(angle), 1);
+          ctx.translate(-CARD_WIDTH / 2, 0);
+
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle =
+            this.isFlipped || this.isMatched
+              ? "#FFFFFF"
+              : this.side === "left"
+              ? "#0000FF"
+              : "#FF0000";
+          ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+
+          if (this.isFlipped || this.isMatched) {
+            ctx.fillStyle = "#000";
+            const cx = CARD_WIDTH / 2;
+            const cy = CARD_HEIGHT / 2;
+            ctx.beginPath();
+
+            switch (this.shape) {
+              case "circle":
+                ctx.arc(cx, cy, 40, 0, 2 * Math.PI);
+                break;
+              case "square":
+                ctx.rect(cx - 40, cy - 40, 80, 80);
+                break;
+              case "triangle":
+                ctx.moveTo(cx, cy - 50);
+                ctx.lineTo(cx - 50, cy + 40);
+                ctx.lineTo(cx + 50, cy + 40);
+                ctx.closePath();
+                break;
+              case "diamond":
+                ctx.moveTo(cx, cy - 40);
+                ctx.lineTo(cx - 40, cy);
+                ctx.lineTo(cx, cy + 40);
+                ctx.lineTo(cx + 40, cy);
+                ctx.closePath();
+                break;
+              case "hex":
+                for (let i = 0; i < 6; i++) {
+                  const a = (Math.PI / 3) * i - Math.PI / 6;
+                  const x = cx + 50 * Math.cos(a);
+                  const y = cy + 50 * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "star":
+                for (let i = 0; i < 10; i++) {
+                  const a = (Math.PI / 5) * i - Math.PI / 2;
+                  const r = i % 2 === 0 ? 50 : 20;
+                  const x = cx + r * Math.cos(a);
+                  const y = cy + r * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "pentagon":
+                for (let i = 0; i < 5; i++) {
+                  const a = ((Math.PI * 2) / 5) * i - Math.PI / 2;
+                  const x = cx + 50 * Math.cos(a);
+                  const y = cy + 50 * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "cross":
+                ctx.rect(cx - 15, cy - 40, 30, 80);
+                ctx.rect(cx - 40, cy - 15, 80, 30);
+                break;
+            }
+
+            ctx.fill();
+          }
+
+          ctx.restore();
+        }
+
+        contains(x, y) {
+          return (
+            x >= this.x &&
+            x <= this.x + CARD_WIDTH &&
+            y >= this.y &&
+            y <= this.y + CARD_HEIGHT
+          );
+        }
+      }
+
+      /* Game State */
+      const cards = [];
+      let leftSelectedCards = [];
+      let rightSelectedCards = [];
+      let startTime = null;
+      let gameStarted = false;
+      let revealTimeout = null;
+      let timeLimitTimeout = null;
+      let timerInterval = null;
+      let leftSideCompleted = false;
+      let rightSideCompleted = false;
+      let timeLimit = 0;
+      let lastWarningSecond = -1;
+
+      /* create deck */
+      function createCards() {
+        const leftTotal = cardRows * cardCols;
+        const leftPool = [];
+        const leftPairsNeeded = leftTotal / 2;
+        const leftRepeats = Math.ceil(leftPairsNeeded / leftShapes.length);
+
+        for (let i = 0; i < leftRepeats; i++) {
+          for (const shape of leftShapes) {
+            leftPool.push(shape, shape);
+            if (leftPool.length >= leftTotal) break;
+          }
+          if (leftPool.length >= leftTotal) break;
+        }
+
+        const rightTotal = cardRows * cardCols;
+        const rightPool = [];
+        const rightPairsNeeded = rightTotal / 2;
+        const rightRepeats = Math.ceil(rightPairsNeeded / rightShapes.length);
+
+        for (let i = 0; i < rightRepeats; i++) {
+          for (const shape of rightShapes) {
+            rightPool.push(shape, shape);
+            if (rightPool.length >= rightTotal) break;
+          }
+          if (rightPool.length >= rightTotal) break;
+        }
+
+        for (let i = leftPool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [leftPool[i], leftPool[j]] = [leftPool[j], leftPool[i]];
+        }
+        for (let i = rightPool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [rightPool[i], rightPool[j]] = [rightPool[j], rightPool[i]];
+        }
+
+        cards.length = 0;
+
+        const leftStartX =
+          (canvasElement.width -
+            (cardCols * CARD_WIDTH * 2 +
+              GAP_BETWEEN_SIDES +
+              (cardCols - 1) * CARD_MARGIN)) /
+          2;
+        const leftStartY =
+          (canvasElement.height -
+            (cardRows * CARD_HEIGHT + (cardRows - 1) * CARD_MARGIN)) /
+          2;
+
+        const rightStartX =
+          leftStartX +
+          cardCols * (CARD_WIDTH + CARD_MARGIN) +
+          GAP_BETWEEN_SIDES;
+        const rightStartY = leftStartY;
+
+        for (let r = 0; r < cardRows; r++) {
+          for (let c = 0; c < cardCols; c++) {
+            const x = leftStartX + c * (CARD_WIDTH + CARD_MARGIN);
+            const y = leftStartY + r * (CARD_HEIGHT + CARD_MARGIN);
+            cards.push(new Card(x, y, leftPool.pop(), "left"));
+          }
+        }
+
+        for (let r = 0; r < cardRows; r++) {
+          for (let c = 0; c < cardCols; c++) {
+            const x = rightStartX + c * (CARD_WIDTH + CARD_MARGIN);
+            const y = rightStartY + r * (CARD_HEIGHT + CARD_MARGIN);
+            cards.push(new Card(x, y, rightPool.pop(), "right"));
+          }
+        }
+      }
+
+      /* drawing & timer */
+      function drawCards() {
+        ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          videoElement,
+          -canvasElement.width,
+          0,
+          canvasElement.width,
+          canvasElement.height
+        );
+        ctx.restore();
+
+        const now = performance.now();
+        let needsRedraw = false;
+        cards.forEach((c) => {
+          if (c.tickFlip(now)) needsRedraw = true;
+          c.draw(ctx);
+        });
+        if (needsRedraw) requestAnimationFrame(drawCards);
+      }
+
+      function updateTimer() {
+        if (!gameStarted) return;
+
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const remaining = Math.max(0, timeLimit - elapsed);
+        const timeNumber = document.getElementById("sessionTime");
+
+        // Update timer text (keeping "Time Xs" format without colon)
+        timeNumber.textContent = `${remaining}`;
+
+        // Add/remove alert class based on remaining time
+        if (remaining <= 3) {
+          timeNumber.classList.add("time-alert");
+        } else {
+          timeNumber.classList.remove("time-alert");
+        }
+
+        const percentRemaining = (remaining / timeLimit) * 100;
+        document.getElementById(
+          "timerLiquid"
+        ).style.height = `${percentRemaining}%`;
+
+        const timerLiquid = document.getElementById("timerLiquid");
+        if (percentRemaining <= 20) {
+          timerLiquid.style.background =
+            "linear-gradient(to top, #FF5722, #FF9800)";
+        } else if (percentRemaining <= 50) {
+          timerLiquid.style.background =
+            "linear-gradient(to top, #FFC107, #FFEB3B)";
+        } else {
+          timerLiquid.style.background =
+            "linear-gradient(to top, #4CAF50, #8BC34A)";
+        }
+
+        if (
+          remaining <= 10 &&
+          remaining > 5 &&
+          lastWarningSecond !== remaining
+        ) {
+          if (remaining === 10) {
+            showTimeWarning(10);
+          }
+          lastWarningSecond = remaining;
+        } else if (
+          remaining <= 5 &&
+          remaining > 0 &&
+          lastWarningSecond !== remaining
+        ) {
+          if (remaining === 5) {
+            showTimeWarning(5);
+          }
+          lastWarningSecond = remaining;
+        } else if (remaining <= 3 && remaining > 0) {
+          showCountdownPopup(remaining);
+        }
+      }
+
+      function showTimeWarning(seconds) {
+        const warningElement = document.getElementById(`timeWarning${seconds}`);
+        warningElement.style.display = "block";
+        warningSound.currentTime = 0;
+        warningSound.play();
+
+        setTimeout(() => {
+          warningElement.style.display = "none";
+        }, 1500);
+      }
+
+      function showCountdownPopup(seconds) {
+        const popup = document.getElementById("countdownPopup");
+        popup.textContent = seconds;
+        popup.style.display = "block";
+        countdownSound.currentTime = 0;
+        countdownSound.play();
+
+        setTimeout(() => {
+          popup.style.display = "none";
+        }, 800);
+      }
+
+      function showCountdown(seconds, callback) {
+        const countdown = document.getElementById("countdown");
+        countdown.style.display = "flex";
+
+        let remaining = seconds;
+        countdown.textContent = remaining;
+
+        const interval = setInterval(() => {
+          remaining--;
+          countdown.textContent = remaining;
+
+          if (remaining <= 0) {
+            clearInterval(interval);
+            countdown.style.display = "none";
+            if (callback) callback();
+          }
+        }, 1000);
+      }
+
+      function checkSideCompletion() {
+        const leftCards = cards.filter((c) => c.side === "left");
+        leftSideCompleted = leftCards.every((c) => c.isMatched);
+
+        const rightCards = cards.filter((c) => c.side === "right");
+        rightSideCompleted = rightCards.every((c) => c.isMatched);
+
+        if (leftSideCompleted && rightSideCompleted) {
+          gameStarted = false;
+          clearInterval(timerInterval);
+          clearTimeout(timeLimitTimeout);
+          setTimeout(() => showWinScreen("both"), 500);
+        } else if (leftSideCompleted) {
+          setTimeout(() => showWinScreen("left"), 500);
+        } else if (rightSideCompleted) {
+          setTimeout(() => showWinScreen("right"), 500);
+        }
+      }
+
+      /* WIN SCREEN */
+      function showWinScreen(winningSide) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("winTimeDisplay").textContent = `${elapsed}s`;
+        document.getElementById(
+          "timeLimitWinDisplay"
+        ).textContent = `${timeLimit}s`;
+
+        const winTitle = document.getElementById("winTitle");
+        const teamWinDisplay = document.getElementById("teamWinDisplay");
+
+        if (winningSide === "left") {
+          winTitle.textContent = "MISSION COMPLETE";
+          teamWinDisplay.textContent = "Blue Team Won!";
+          teamWinDisplay.className = "team-win blue-win";
+        } else if (winningSide === "right") {
+          winTitle.textContent = "MISSION COMPLETE";
+          teamWinDisplay.textContent = "Red Team Won!";
+          teamWinDisplay.className = "team-win red-win";
+        } else {
+          winTitle.textContent = "MISSION COMPLETE";
+          teamWinDisplay.textContent = "Perfect Teamwork!";
+          teamWinDisplay.className = "team-win";
+          teamWinDisplay.style.background =
+            "linear-gradient(to right, #0000FF, #FF0000)";
+          teamWinDisplay.style.webkitBackgroundClip = "text";
+          teamWinDisplay.style.webkitTextFillColor = "transparent";
+        }
+
+        const userData = users[user] || {};
+        const bestTimes = userData.bestTimes || {};
+        const difficultyKey = "multiplayer";
+
+        if (!bestTimes[difficultyKey] || elapsed < bestTimes[difficultyKey]) {
+          bestTimes[difficultyKey] = elapsed;
+          users[user] = {
+            ...userData,
+            bestTimes: bestTimes,
+          };
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
+        const bestTime = bestTimes[difficultyKey] || "--";
+        document.getElementById("bestTimeDisplay").textContent =
+          bestTime === "--" ? "--" : `${bestTime}s`;
+
+        const starsEarned = 15;
+        document.getElementById("starsEarnedDisplay").textContent = starsEarned;
+
+        if (user && users[user]) {
+          users[user].stars = (users[user].stars || 0) + starsEarned;
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+          refreshStars();
+        }
+
+        createConfetti();
+        document.getElementById("winScreen").style.display = "flex";
+
+        try {
+          const sessions = JSON.parse(
+            localStorage.getItem("therapySessions") || "[]"
+          );
+          sessions.push({
+            date: new Date().toISOString(),
+            mode: "game",
+            game: "Memory Match (Multiplayer)",
+            difficulty: "multiplayer",
+            duration: elapsed,
+            score: winningSide === "both" ? "both" : winningSide,
+          });
+          localStorage.setItem("therapySessions", JSON.stringify(sessions));
+        } catch (err) {
+          console.warn("Could not save session history", err);
+        }
+      }
+
+      /* LOSE SCREEN */
+      function showLoseScreen() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const loseTitle = document.getElementById("loseTitle");
+        const loseMessage = document.getElementById("loseMessage");
+
+        loseTitle.textContent = "MISSION FAILED";
+
+        if (leftSideCompleted && !rightSideCompleted) {
+          loseMessage.textContent =
+            "Blue team finished, but Red team ran out of time!";
+        } else if (!leftSideCompleted && rightSideCompleted) {
+          loseMessage.textContent =
+            "Red team finished, but Blue team ran out of time!";
+        } else {
+          loseMessage.textContent =
+            "Time ran out before either team could finish!";
+        }
+
+        document.getElementById("loseScreen").style.display = "flex";
+      }
+
+      function createConfetti() {
+        const colors = [
+          "#ff0000",
+          "#00ff00",
+          "#0000ff",
+          "#ffff00",
+          "#ff00ff",
+          "#00ffff",
+        ];
+        const container = document.body;
+
+        for (let i = 0; i < 100; i++) {
+          const confetti = document.createElement("div");
+          confetti.className = "confetti";
+          confetti.style.backgroundColor =
+            colors[Math.floor(Math.random() * colors.length)];
+          confetti.style.left = Math.random() * 100 + "vw";
+          confetti.style.top = -10 + "px";
+          confetti.style.borderRadius = Math.random() * 50 + "%";
+          confetti.style.width = Math.random() * 10 + 5 + "px";
+          confetti.style.height = confetti.style.width;
+
+          container.appendChild(confetti);
+
+          const animationDuration = Math.random() * 3 + 2;
+
+          confetti.animate(
+            [
+              { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+              {
+                transform: `translate(${Math.random() * 200 - 100}px, ${
+                  window.innerHeight
+                }px) rotate(${Math.random() * 360}deg)`,
+                opacity: 0,
+              },
+            ],
+            {
+              duration: animationDuration * 1000,
+              easing: "cubic-bezier(0.1, 0.8, 0.9, 1)",
+              fill: "forwards",
+            }
+          );
+
+          setTimeout(() => {
+            confetti.remove();
+          }, animationDuration * 1000);
+        }
+      }
+
+      /* memorize preview */
+      function revealCards() {
+        cards.forEach((c) => c.startFlip(true));
+        drawCards();
+        document.getElementById("memorizeOverlay").style.display = "flex";
+
+        setTimeout(() => {
+          cards.forEach((c) => c.startFlip(false));
+          document.getElementById("memorizeOverlay").style.display = "none";
+          startTime = Date.now();
+          gameStarted = true;
+          timerInterval = setInterval(updateTimer, 1000);
+          lastWarningSecond = -1;
+
+          const gridKey = `${cardRows}x${cardCols}`;
+          timeLimit = TIME_LIMITS[gridKey] || 30;
+
+          document.getElementById("timerLiquid").style.height = "100%";
+          document.getElementById("timerLiquid").style.background =
+            "linear-gradient(to top, #4CAF50, #8BC34A)";
+
+          timeLimitTimeout = setTimeout(() => {
+            if (gameStarted && (!leftSideCompleted || !rightSideCompleted)) {
+              gameStarted = false;
+              clearInterval(timerInterval);
+              showLoseScreen();
+            }
+          }, timeLimit * 1000);
+        }, PREVIEW_DURATION);
+      }
+
+      /* game reset */
+      function resetGame() {
+        if (revealTimeout) clearTimeout(revealTimeout);
+        if (timeLimitTimeout) clearTimeout(timeLimitTimeout);
+        if (timerInterval) clearInterval(timerInterval);
+
+        const newSettings = JSON.parse(
+          localStorage.getItem("memoryMatchMultiplayerSettings") || "{}"
+        );
+        if (newSettings) {
+          cardRows = newSettings.rows || 4;
+          cardCols = newSettings.cols || 1;
+        }
+
+        createCards();
+        leftSelectedCards = [];
+        rightSelectedCards = [];
+        leftSideCompleted = false;
+        rightSideCompleted = false;
+        gameStarted = false;
+        document.getElementById("winScreen").style.display = "none";
+        document.getElementById("loseScreen").style.display = "none";
+        document.getElementById("timeWarning10").style.display = "none";
+        document.getElementById("timeWarning5").style.display = "none";
+        document.getElementById("countdownPopup").style.display = "none";
+        revealCards();
+      }
+
+      document.getElementById("startBtn").addEventListener("click", resetGame);
+      document
+        .getElementById("playAgainBtn")
+        .addEventListener("click", resetGame);
+      document
+        .getElementById("tryAgainBtn")
+        .addEventListener("click", resetGame);
+
+      /* MediaPipe Hands setup */
+      const hands = new Hands({
+        locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
+      });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.5,
+      });
+
+      /* Camera Selection */
+      const cameraSelect = document.getElementById("cameraSelect");
+      let currentStream = null;
+
+      async function initCameraSelector() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+          stream.getTracks().forEach((track) => track.stop());
+
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(
+            (device) => device.kind === "videoinput"
+          );
+
+          cameraSelect.innerHTML = "";
+          videoDevices.forEach((device) => {
+            const option = document.createElement("option");
+            option.value = device.deviceId;
+            option.text = device.label || `Camera ${cameraSelect.length + 1}`;
+            cameraSelect.appendChild(option);
+          });
+
+          if (videoDevices.length > 0) {
+            await startCamera(videoDevices[0].deviceId);
+          }
+
+          cameraSelect.addEventListener("change", async () => {
+            await startCamera(cameraSelect.value);
+          });
+        } catch (error) {
+          console.error("Camera initialization failed:", error);
+          alert(
+            "Camera access is required for this game. Please enable camera permissions."
+          );
+        }
+      }
+
+      async function startCamera(deviceId) {
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop());
+        }
+
+        try {
+          currentStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: { exact: deviceId },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user",
+            },
+          });
+
+          videoElement.srcObject = currentStream;
+          await videoElement.play();
+
+          hands.onResults(onHandResults);
+          const camera = new Camera(videoElement, {
+            onFrame: async () => {
+              await hands.send({ image: videoElement });
+            },
+            width: 1280,
+            height: 720,
+          });
+          camera.start();
+        } catch (error) {
+          console.error("Error starting camera:", error);
+          alert(`Could not start camera: ${error.message}`);
+        }
+      }
+
+      /* Hands results */
+      function onHandResults(results) {
+        if (!gameStarted) {
+          drawCards();
+          return;
+        }
+
+        const now = Date.now();
+        const handPositions = [];
+
+        if (results.multiHandLandmarks) {
+          for (const lm of results.multiHandLandmarks) {
+            const tip = lm[8];
+            handPositions.push({
+              x: canvasElement.width - tip.x * canvasElement.width,
+              y: tip.y * canvasElement.height,
+            });
+          }
+        }
+
+        const leftHandPositions = [];
+        const rightHandPositions = [];
+
+        handPositions.forEach((pos) => {
+          if (pos.x < canvasElement.width / 2) {
+            leftHandPositions.push(pos);
+          } else {
+            rightHandPositions.push(pos);
+          }
+        });
+
+        const leftCards = cards.filter(
+          (c) => c.side === "left" && !c.isMatched
+        );
+        for (const card of leftCards) {
+          let hovering = false;
+          for (const p of leftHandPositions) {
+            if (card.contains(p.x, p.y)) {
+              hovering = true;
+              if (!card.hoverStart) {
+                card.hoverStart = now;
+              } else if (
+                now - card.hoverStart >= FLIP_HOLD_TIME &&
+                !card.targetFaceUp &&
+                leftSelectedCards.length < 2
+              ) {
+                card.startFlip(true);
+                leftSelectedCards.push(card);
+                card.hoverStart = null;
+              }
+              break;
+            }
+          }
+          if (!hovering) card.hoverStart = null;
+        }
+
+        const rightCards = cards.filter(
+          (c) => c.side === "right" && !c.isMatched
+        );
+        for (const card of rightCards) {
+          let hovering = false;
+          for (const p of rightHandPositions) {
+            if (card.contains(p.x, p.y)) {
+              hovering = true;
+              if (!card.hoverStart) {
+                card.hoverStart = now;
+              } else if (
+                now - card.hoverStart >= FLIP_HOLD_TIME &&
+                !card.targetFaceUp &&
+                rightSelectedCards.length < 2
+              ) {
+                card.startFlip(true);
+                rightSelectedCards.push(card);
+                card.hoverStart = null;
+              }
+              break;
+            }
+          }
+          if (!hovering) card.hoverStart = null;
+        }
+
+        if (leftSelectedCards.length === 2) {
+          const [c1, c2] = leftSelectedCards;
+          if (c1.shape === c2.shape) {
+            c1.isMatched = c2.isMatched = true;
+            leftSelectedCards = [];
+            checkSideCompletion();
+          } else {
+            setTimeout(() => {
+              c1.startFlip(false);
+              c2.startFlip(false);
+              leftSelectedCards = [];
+            }, 1000);
+          }
+        }
+
+        if (rightSelectedCards.length === 2) {
+          const [c1, c2] = rightSelectedCards;
+          if (c1.shape === c2.shape) {
+            c1.isMatched = c2.isMatched = true;
+            rightSelectedCards = [];
+            checkSideCompletion();
+          } else {
+            setTimeout(() => {
+              c1.startFlip(false);
+              c2.startFlip(false);
+              rightSelectedCards = [];
+            }, 1000);
+          }
+        }
+
+        drawCards();
+      }
+
+      /* INIT PAGE */
+      if (!user || !users[user]) {
+        window.location.href = "/login.html";
+      } else {
+        refreshStars();
+        initCameraSelector();
+        createCards();
+        drawCards();
+      }
+    </script>
+  </body>
+</html>

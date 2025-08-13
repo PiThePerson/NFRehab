@@ -1,0 +1,653 @@
+<!-- ████████████████████████████████████████████████████████
+     UPDATED ept2.html  –  Squat‑Tracker (NORMAL mode)
+     ★ Adds camera‑selector dropdown (<select id="cameraSelect">)
+     ★ Persists last‑chosen device in localStorage (key = "nf_selectedCamera")
+     ★ Switches from MediaPipe Camera helper to native getUserMedia so any USB cam works
+     ████████████████████████████████████████████████████████ -->
+<!DOCTYPE html>
+<html lang="en">
+  <!--  ────────────────────────────────────────────────────────────────
+                       SQUAT‑TRACKER  (ept2.html)
+                       ★ 2025‑06 full version – star system + camera select ★
+                       ──────────────────────────────────────────────────────────────── -->
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Squat Tracker</title>
+
+    <!--  Icons + CSS  -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../css/main.css" />
+    <link rel="stylesheet" href="../css/ets.css" />
+    <style>
+      /* ░░ additional style for camera picker ░░ */
+      .camera-select {
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        border: 1px solid #444;
+        border-radius: 6px;
+        padding: 0.25rem 0.5rem;
+        margin-left: 0.5rem;
+        max-width: 260px;
+      }
+      @media (max-width: 600px) {
+        .camera-select {
+          max-width: 140px;
+          font-size: 0.8rem;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!--  ───────────────────── TOP BAR ─────────────────────  -->
+    <div class="top-bar">
+      <a href="/dashboard.html" class="back-button"
+        ><i class="fas fa-arrow-left"></i> Back to Dashboard</a
+      >
+      <div class="star-display">🌟 Stars: <span id="starBalance">0</span></div>
+      <select id="cameraSelect" class="camera-select"></select>
+    </div>
+
+    <!--  ───────────────────── MAIN LAYOUT ─────────────────────  -->
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+
+        <!-- heads‑up display -->
+        <div class="hud top-left" id="angleDisplay">Angle: --°</div>
+        <div class="hud top-right" id="counterDisplay">Squats: 0</div>
+
+        <div class="status-indicator" id="statusIndicator"></div>
+        <div id="feedback"></div>
+
+        <div id="qualityIndicator" class="quality-indicator quality-good">
+          Perfect Form ✅
+        </div>
+      </div>
+
+      <!--  ───────────── CONTROL BUTTONS ─────────────  -->
+      <div class="controls">
+        <button id="startBtn">
+          <i class="fas fa-play"></i> Start Tracking
+        </button>
+        <button id="resetBtn"><i class="fas fa-redo"></i> Reset Count</button>
+        <button id="calibrateBtn"><i class="fas fa-cog"></i> Calibrate</button>
+        <button onclick="window.location.href='eptsel.html'">
+          Return to Selection Screen
+        </button>
+        <div class="timer">⏱️ Time: <span id="sessionTime">0</span>s</div>
+      </div>
+
+      <!--  ───────────── LIVE STAT BOXES ─────────────  -->
+      <div class="squat-stats">
+        <div class="stat-box">
+          <div class="stat-label">Squat Count</div>
+          <div class="stat-value" id="squatCount">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Current State</div>
+          <div class="stat-value" id="state">ready</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Knee Angle</div>
+          <div class="stat-value" id="kneeAngle">--°</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Hip Angle</div>
+          <div class="stat-value" id="hipAngle">--°</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Depth</div>
+          <div class="stat-value" id="depth">--%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Balance</div>
+          <div class="stat-value" id="balance">--</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Speed</div>
+          <div class="stat-value" id="speed">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!--  ───────────────────── WIN SCREEN ─────────────────────  -->
+    <div id="winScreen" style="display: none">
+      <div class="win-content">
+        <h1 class="win-title">Workout Complete!</h1>
+        <div class="time-display">Time: <span id="finalTime">00:00</span></div>
+        <div class="best-time-display">
+          Best Time: <span id="bestTime">--:--</span>
+          <span class="record-badge" style="display: none">New Record!</span>
+        </div>
+        <div id="starsContainer" style="margin: 1rem 0"></div>
+        <div class="win-buttons">
+          <button class="play-again-btn" onclick="playAgain()">
+            <i class="fas fa-redo"></i> Play Again
+          </button>
+          <button class="next-btn" onclick="nextLevel()">
+            Next <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!--  ───────────────────── MEDIAPIPE LIBS ─────────────────────  -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"
+      crossorigin="anonymous"
+    ></script>
+
+    <!--  ───────────────────── CORE SCRIPT ─────────────────────  -->
+    <script>
+      /* --------------------------------------------------------------
+                        0.  GLOBAL USER/DB HELPERS
+                     ----------------------------------------------------------------*/
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+      const CAM_KEY = "nf_selectedCamera";
+      function readDB() {
+        return JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+      }
+      function writeDB(db) {
+        localStorage.setItem(USERS_KEY, JSON.stringify(db));
+      }
+      function getCurrentUser() {
+        return localStorage.getItem(USER_KEY);
+      }
+
+      /* --------------------------------------------------------------
+                        1.  ADVANCED SQUAT TRACKER CLASS  (with camera‑select)
+                     ----------------------------------------------------------------*/
+      class AdvancedSquatTracker {
+        constructor() {
+          // 1‑A. settings
+          const cfg = JSON.parse(localStorage.getItem("exerciseMode") || "{}");
+          this.targetReps = cfg.reps || 10;
+          this.minSquatDepth = cfg.threshold || 110;
+
+          // 1‑B. DOM refs
+          this.videoElement = document.getElementById("video");
+          this.canvasElement = document.getElementById("canvas");
+          this.ctx = this.canvasElement.getContext("2d");
+
+          // 1‑C. live stats
+          this.squatCount = 0;
+          this.isTracking = false;
+          this.currentState = "ready";
+          this.lastValidSquat = 0;
+
+          // 1‑D. smoothing + timing
+          this.historySize = 10;
+          this.kneeAngleHistory = [];
+          this.hipAngleHistory = [];
+          this.standingThreshold = 140;
+          this.minSquatDuration = 300;
+          this.maxSquatDuration = 8000;
+          this.smoothingFactor = 0.55;
+
+          // 1‑E. Pose model
+          this.pose = new Pose({
+            locateFile: (f) =>
+              `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`,
+          });
+          this.pose.setOptions({
+            modelComplexity: 2,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7,
+          });
+          this.pose.onResults((r) => this.onPoseResults(r));
+
+          // helpers
+          this.bindEvents();
+          this.startSessionTimer();
+          this.loadStars();
+          this.setupCameraSelection();
+        }
+
+        /* ===== STAR SYNC ===== */
+        loadStars() {
+          const u = getCurrentUser();
+          const db = readDB();
+          const s = u && db[u] ? db[u].stars || 0 : 0;
+          document.getElementById("starBalance").textContent = s;
+        }
+        addStars(n = 1) {
+          const u = getCurrentUser();
+          if (!u) return;
+          const db = readDB();
+          if (!db[u]) db[u] = { stars: 0 };
+          db[u].stars = (db[u].stars || 0) + n;
+          writeDB(db);
+          document.getElementById("starBalance").textContent = db[u].stars;
+        }
+
+        /* ===== CAMERA PICKER ===== */
+        async setupCameraSelection() {
+          const sel = document.getElementById("cameraSelect");
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const vids = devices.filter((d) => d.kind === "videoinput");
+          sel.innerHTML = "";
+          vids.forEach((d, i) => {
+            const o = document.createElement("option");
+            o.value = d.deviceId;
+            o.textContent = d.label || `Camera ${i + 1}`;
+            sel.appendChild(o);
+          });
+          const saved = localStorage.getItem(CAM_KEY) || vids[0]?.deviceId;
+          sel.value = saved;
+          sel.onchange = (e) => {
+            localStorage.setItem(CAM_KEY, e.target.value);
+            this.startStream(e.target.value);
+          };
+          this.startStream(saved);
+        }
+        async startStream(deviceId) {
+          if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+          try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: deviceId },
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+              },
+              audio: false,
+            });
+            this.videoElement.srcObject = this.stream;
+            await this.videoElement.play();
+            if (!this.raf) this.animatePose();
+          } catch (err) {
+            alert("Could not open camera: " + err.message);
+            console.error(err);
+          }
+        }
+        animatePose() {
+          const loop = async () => {
+            if (this.isTracking && this.videoElement.readyState >= 2) {
+              await this.pose.send({ image: this.videoElement });
+            }
+            this.raf = requestAnimationFrame(loop);
+          };
+          loop();
+        }
+
+        /* ===== EVENT BINDINGS ===== */
+        bindEvents() {
+          document
+            .getElementById("startBtn")
+            .addEventListener("click", () => this.toggleTracking());
+          document
+            .getElementById("resetBtn")
+            .addEventListener("click", () => this.resetCount());
+          document
+            .getElementById("calibrateBtn")
+            .addEventListener("click", () => this.startCalibration());
+          window.addEventListener("storage", () => this.loadStars());
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) this.loadStars();
+          });
+        }
+
+        /* ===== TIMER ===== */
+        startSessionTimer() {
+          this.sessionStartTime = Date.now();
+          this.sessionTimer = setInterval(() => {
+            const e = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+            document.getElementById("sessionTime").textContent = e;
+          }, 1000);
+        }
+
+        /* ===== TRACK / RESET / CALIBRATE ===== */
+        toggleTracking() {
+          const btn = document.getElementById("startBtn");
+          this.isTracking = !this.isTracking;
+          btn.innerHTML = this.isTracking
+            ? "⏸️ Stop Tracking"
+            : "🎯 Start Tracking";
+          btn.style.background = this.isTracking
+            ? "linear-gradient(45deg,#f44336,#ff9800)"
+            : "linear-gradient(45deg,#ff6b6b,#ffa500)";
+        }
+        resetCount() {
+          this.squatCount = 0;
+          this.currentState = "ready";
+          this.kneeAngleHistory = [];
+          this.hipAngleHistory = [];
+          this.updateDisplay();
+        }
+        startCalibration() {
+          alert(
+            "Stand normally 3 s, then squat as deep as possible for 3 s (simple calib)."
+          );
+        }
+
+        /* ===== POSE CALLBACK ===== */
+        onPoseResults(results) {
+          this.drawResults(results);
+          if (results.poseLandmarks && this.isTracking) {
+            const a = this.analyzePose(results.poseLandmarks);
+            this.processSquatDetection(a);
+            this.updateDisplay(a);
+          }
+        }
+
+        /* ===== GEOMETRY & ANALYSIS, STATE MACHINE, COMPLETE SQUAT, END SESSION, DRAWING, DISPLAY ===== */
+        /* --- these 300+ lines are identical to your original file and are kept below without any compression --- */
+        // --- BEGIN UNCHANGED ORIGINAL LOGIC ---
+        calcAng(a, b, c) {
+          const ab = { x: a.x - b.x, y: a.y - b.y };
+          const cb = { x: c.x - b.x, y: c.y - b.y };
+          const dot = ab.x * cb.x + ab.y * cb.y;
+          const magAB = Math.hypot(ab.x, ab.y);
+          const magCB = Math.hypot(cb.x, cb.y);
+          return (
+            (Math.acos(Math.max(-1, Math.min(1, dot / (magAB * magCB)))) *
+              180) /
+            Math.PI
+          );
+        }
+        smooth(val, arr) {
+          arr.push(val);
+          if (arr.length > this.historySize) arr.shift();
+          let wSum = 0,
+            wTot = 0;
+          arr.forEach((v, i) => {
+            const w = Math.pow(this.smoothingFactor, arr.length - 1 - i);
+            wSum += v * w;
+            wTot += w;
+          });
+          return wSum / wTot;
+        }
+        analyzePose(lm) {
+          const LHip = lm[23],
+            RHip = lm[24],
+            LK = lm[25],
+            RK = lm[26],
+            LA = lm[27],
+            RA = lm[28],
+            LS = lm[11],
+            RS = lm[12];
+          const LKneeAng = this.calcAng(LHip, LK, LA);
+          const RKneeAng = this.calcAng(RHip, RK, RA);
+          const LHipAng = this.calcAng(LS, LHip, LK);
+          const RHipAng = this.calcAng(RS, RHip, RK);
+          const kneeAvg = [LKneeAng, RKneeAng].filter((x) => !isNaN(x));
+          const hipAvg = [LHipAng, RHipAng].filter((x) => !isNaN(x));
+          const knee = kneeAvg.length
+            ? kneeAvg.reduce((a, b) => a + b) / kneeAvg.length
+            : 0;
+          const hip = hipAvg.length
+            ? hipAvg.reduce((a, b) => a + b) / hipAvg.length
+            : 0;
+          const depth =
+            Math.abs((LHip.y + RHip.y) / 2 - (LA.y + RA.y) / 2) /
+            Math.abs((LK.y + RK.y) / 2 - (LA.y + RA.y) / 2);
+          const bal = Math.abs(LHip.y - RHip.y);
+          const conf = Math.min(
+            LK.visibility || 0,
+            RK.visibility || 0,
+            LHip.visibility || 0,
+            RHip.visibility || 0
+          );
+          return {
+            kneeAngle: this.smooth(knee, this.kneeAngleHistory),
+            hipAngle: this.smooth(hip, this.hipAngleHistory),
+            depth,
+            balance: bal,
+            confidence: conf,
+          };
+        }
+        processSquatDetection(a) {
+          const now = Date.now();
+          const knee = a.kneeAngle;
+          if (a.confidence < 0.4) {
+            this.showQuality("poor");
+            return;
+          }
+          switch (this.currentState) {
+            case "ready":
+              if (knee < this.standingThreshold) {
+                this.currentState = "descending";
+                this.squatStartTime = now;
+                this.consecutiveFrames = 0;
+              }
+              break;
+            case "descending":
+              if (knee <= this.minSquatDepth) {
+                if (++this.consecutiveFrames >= 2) {
+                  this.currentState = "bottom";
+                  this.consecutiveFrames = 0;
+                }
+              } else if (knee > this.standingThreshold + 10) {
+                this.currentState = "ready";
+              }
+              break;
+            case "bottom":
+              if (knee > this.minSquatDepth + 20) {
+                this.currentState = "ascending";
+              }
+              if (now - this.squatStartTime > this.maxSquatDuration) {
+                this.currentState = "ready";
+              }
+              break;
+            case "ascending":
+              if (knee >= this.standingThreshold) {
+                if (++this.consecutiveFrames >= 2) {
+                  this.completeSquat(now);
+                }
+              } else if (knee <= this.minSquatDepth + 10) {
+                this.currentState = "bottom";
+              }
+              break;
+          }
+          this.showQuality(a.confidence > 0.6 ? "good" : "warning");
+        }
+        completeSquat(now) {
+          const dur = now - this.squatStartTime;
+          if (
+            dur < this.minSquatDuration ||
+            dur > this.maxSquatDuration ||
+            now - this.lastValidSquat < 1000
+          )
+            return;
+          this.squatCount++;
+          this.lastValidSquat = now;
+          this.addStars(1);
+          this.showFeedback("Perfect squat! 🎉");
+          this.celebrateSquat();
+          this.updateDisplay();
+          if (this.squatCount >= this.targetReps) this.endSession();
+          this.currentState = "ready";
+        }
+        endSession() {
+          clearInterval(this.sessionTimer);
+          const finalMs = Date.now() - this.sessionStartTime;
+          document.getElementById("finalTime").textContent =
+            this.fmtTime(finalMs);
+          const bestMs = parseInt(localStorage.getItem("bestSquatTime") || 1e9);
+          if (finalMs < bestMs) {
+            localStorage.setItem("bestSquatTime", finalMs);
+            document.querySelector(".record-badge").style.display = "inline";
+          } else {
+            document.querySelector(".record-badge").style.display = "none";
+          }
+          document.getElementById("bestTime").textContent = this.fmtTime(
+            Math.min(bestMs, finalMs)
+          );
+          const starsDiv = document.getElementById("starsContainer");
+          starsDiv.innerHTML = "";
+          for (let i = 0; i < this.squatCount; i++) {
+            const s = document.createElement("span");
+            s.textContent = "🌟";
+            s.style.fontSize = "2rem";
+            starsDiv.appendChild(s);
+          }
+          try {
+            const sessions = JSON.parse(
+              localStorage.getItem("therapySessions") || "[]"
+            );
+            sessions.push({
+              date: new Date().toISOString(),
+              mode: "normal",
+              game: "Squat Tracker",
+              duration: Math.round(finalMs / 1000),
+              score: null,
+            });
+            localStorage.setItem("therapySessions", JSON.stringify(sessions));
+          } catch (err) {
+            console.warn("Could not save session history", err);
+          }
+          document.getElementById("winScreen").style.display = "flex";
+          this.isTracking = false;
+          document.getElementById("startBtn").textContent = "🎯 Start Tracking";
+        }
+        fmtTime(ms) {
+          const s = Math.floor(ms / 1000);
+          const m = Math.floor(s / 60);
+          return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(
+            2,
+            "0"
+          )}`;
+        }
+        showQuality(q) {
+          const n = document.getElementById("qualityIndicator");
+          const msg = {
+            good: "Perfect Form ✅",
+            warning: "Check Form ⚠️",
+            poor: "Poor Detection ❌",
+          };
+          n.textContent = msg[q];
+          n.className = `quality-indicator quality-${q}`;
+        }
+        showFeedback(msg) {
+          const f = document.getElementById("feedback");
+          f.textContent = msg;
+          f.style.display = "block";
+          setTimeout(() => (f.style.display = "none"), 2000);
+        }
+        celebrateSquat() {
+          const c = this.canvasElement,
+            ctx = this.ctx;
+          for (let i = 0; i < 10; i++) {
+            setTimeout(() => {
+              ctx.fillStyle = `hsl(${Math.random() * 360},100%,50%)`;
+              ctx.beginPath();
+              ctx.arc(
+                Math.random() * c.width,
+                Math.random() * c.height,
+                5 + Math.random() * 10,
+                0,
+                2 * Math.PI
+              );
+              ctx.fill();
+            }, i * 50);
+          }
+        }
+        drawResults(r) {
+          const c = this.canvasElement,
+            ctx = this.ctx;
+          c.width = this.videoElement.videoWidth || 640;
+          c.height = this.videoElement.videoHeight || 480;
+          ctx.clearRect(0, 0, c.width, c.height);
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.drawImage(this.videoElement, -c.width, 0, c.width, c.height);
+          ctx.restore();
+          if (r.poseLandmarks) this.drawLM(r.poseLandmarks);
+        }
+        drawLM(lm) {
+          const ctx = this.ctx,
+            c = this.canvasElement;
+          const pts = [23, 24, 25, 26, 27, 28];
+          const links = [
+            [23, 25],
+            [25, 27],
+            [24, 26],
+            [26, 28],
+            [23, 24],
+          ];
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.translate(-c.width, 0);
+          ctx.strokeStyle = "#0f0";
+          ctx.lineWidth = 3;
+          links.forEach(([s, e]) => {
+            if (lm[s].visibility > 0.5 && lm[e].visibility > 0.5) {
+              ctx.beginPath();
+              ctx.moveTo(lm[s].x * c.width, lm[s].y * c.height);
+              ctx.lineTo(lm[e].x * c.width, lm[e].y * c.height);
+              ctx.stroke();
+            }
+          });
+          const color = {
+            23: "#ff4444",
+            24: "#ff4444",
+            25: "#44ff44",
+            26: "#44ff44",
+            27: "#4444ff",
+            28: "#4444ff",
+          };
+          pts.forEach((i) => {
+            if (lm[i].visibility > 0.5) {
+              ctx.beginPath();
+              ctx.arc(lm[i].x * c.width, lm[i].y * c.height, 8, 0, 2 * Math.PI);
+              ctx.fillStyle = color[i] || "#f00";
+              ctx.fill();
+              ctx.strokeStyle = "#fff";
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+          });
+          ctx.restore();
+        }
+        updateDisplay(a = null) {
+          document.getElementById("squatCount").textContent = this.squatCount;
+          document.getElementById(
+            "counterDisplay"
+          ).textContent = `Squats: ${this.squatCount}`;
+          document.getElementById("state").textContent = this.currentState;
+          if (a) {
+            document.getElementById(
+              "angleDisplay"
+            ).textContent = `Angle: ${Math.round(a.kneeAngle)}°`;
+            document.getElementById("kneeAngle").textContent = `${Math.round(
+              a.kneeAngle
+            )}°`;
+            document.getElementById("hipAngle").textContent = `${Math.round(
+              a.hipAngle
+            )}°`;
+            document.getElementById("depth").textContent = `${Math.round(
+              a.depth * 100
+            )}%`;
+            document.getElementById("balance").textContent =
+              a.balance < 0.05 ? "Good" : "Poor";
+            const spd =
+              this.kneeAngleHistory.length > 1
+                ? Math.abs(
+                    this.kneeAngleHistory.at(-1) - this.kneeAngleHistory.at(-2)
+                  )
+                : 0;
+            document.getElementById("speed").textContent =
+              spd > 5 ? "Fast" : spd > 2 ? "Normal" : "Slow";
+          }
+        }
+      }
+      /*  ─── LIFECYCLE ─── */
+      window.addEventListener("load", () => new AdvancedSquatTracker());
+      function playAgain() {
+        document.getElementById("winScreen").style.display = "none";
+        window.location.reload();
+      }
+      function nextLevel() {
+        document.getElementById("winScreen").style.display = "none";
+      }
+    </script>
+  </body>
+</html>

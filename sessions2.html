@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Session Records</title>
+    <link rel="stylesheet" href="css/sessions.css" />
+    <link rel="stylesheet" href="css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <!-- Add this in the head section -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <style>
+      /* Make ONLY the records list scrollable */
+      .record-username {
+        display: inline-block;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.85em;
+        margin-top: 2px;
+      }
+      .delete-btn {
+        background: transparent;
+        border: none;
+        color: #ff4d4d;
+        font-size: 1.1em;
+        cursor: pointer;
+        margin-left: 10px;
+        transition: color 0.3s ease;
+      }
+
+      .delete-btn:hover {
+        color: red;
+      }
+
+      #recordsContainer {
+        max-height: 500px; /* Adjust this value as needed */
+        overflow-y: auto;
+        margin-top: 10px;
+      }
+
+      /* Optional: Style scrollbar to match your theme */
+      #recordsContainer::-webkit-scrollbar {
+        width: 6px;
+      }
+      #recordsContainer::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+      }
+      /* Add these styles to your sessions.css or in this style tag */
+      .stats-scroll-container {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .stats-grid {
+        display: inline-flex;
+        gap: 15px;
+        padding: 0 5px;
+        min-width: 100%;
+      }
+
+      .stat-card {
+        min-width: 150px;
+        flex-shrink: 0;
+      }
+
+      .result-card {
+        background-color: white !important;
+        border: 1px solid rgba(0, 0, 0, 0.1) !important;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .result-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 119, 255, 0.2);
+        border-color: rgba(0, 119, 255, 0.5) !important;
+      }
+
+      .result-card:active {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(0, 119, 255, 0.2);
+      }
+
+      .result-card .stat-label {
+        color: #333;
+        font-weight: 500;
+      }
+
+      .result-card .stat-value {
+        color: #0077ff;
+        font-weight: 700;
+        position: relative;
+        display: inline-block;
+      }
+
+      .result-card .stat-value::after {
+        content: "";
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: #0077ff;
+        transform: scaleX(0);
+        transform-origin: right;
+        transition: transform 0.3s ease;
+      }
+
+      .result-card:hover .stat-value::after {
+        transform: scaleX(1);
+        transform-origin: left;
+      }
+
+      /* Hide scrollbar but keep functionality */
+      .stats-scroll-container::-webkit-scrollbar {
+        height: 5px;
+      }
+
+      .stats-scroll-container::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+
+      .stats-scroll-container::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header with back button -->
+      <header>
+        <div>
+          <a href="dashboard.html" class="back-button">
+            <i class="fas fa-arrow-left"></i>
+            Back to Dashboard
+          </a>
+          <h1>Session Records</h1>
+          <p style="color: rgba(255, 255, 255, 0.8)">
+            Track your therapy progress
+          </p>
+        </div>
+      </header>
+
+      <!-- Stats Overview -->
+      <div class="stats-scroll-container">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <p class="stat-label">Total Sessions</p>
+            <p class="stat-value" id="totalSessions">0</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Best Score</p>
+            <p class="stat-value" id="bestScore">0</p>
+          </div>
+          <div
+            class="stat-card result-card"
+            onclick="window.location.href='history.html'"
+          >
+            <p class="stat-label">Click To See Your Result</p>
+            <p class="stat-value">
+              View Details
+              <i
+                class="fas fa-chevron-right"
+                style="font-size: 0.8em; margin-left: 5px"
+              ></i>
+            </p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Recent Mode</p>
+            <p class="stat-value" id="recentMode">-</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Avg. Duration</p>
+            <p class="stat-value" id="avgDuration">0m</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Records Table -->
+      <div class="records-container">
+        <div class="records-header">
+          <h2 class="records-title">Your Session History</h2>
+          <div class="filter-controls">
+            <div class="filter-select-wrapper">
+              <select id="filterMode" class="filter-select">
+                <option value="all">All Modes</option>
+                <option value="grip">Grip Mode</option>
+                <option value="game">Game Mode</option>
+                <option value="normal">Normal Mode</option>
+                <option value="speech">Speech Mode</option>
+              </select>
+            </div>
+            <button id="sortDateBtn" class="filter-select">
+              <i class="fas fa-sort"></i> Date
+            </button>
+            <button id="exportCsvBtn" class="filter-select">
+              <i class="fas fa-file-export"></i> Export CSV
+            </button>
+            <button id="syncSheetsBtn" class="filter-select">
+              <i class="fas fa-cloud-upload-alt"></i> Sync to Google Sheets
+            </button>
+            <button id="testConnectionBtn" class="filter-select">
+              <i class="fas fa-plug"></i> Test Connection
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="recordsContainer"
+          class="divide-y divide-gray-100 divide-opacity-20"
+        >
+          <!-- Records will be inserted here by JavaScript -->
+          <div class="empty-state">
+            <i class="fas fa-gamepad empty-icon"></i>
+            <p>No session records yet. Complete your first session!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // DOM elements
+      const recordsContainer = document.getElementById("recordsContainer");
+      const filterMode = document.getElementById("filterMode");
+      const sortDateBtn = document.getElementById("sortDateBtn");
+
+      // Stats elements
+      const totalSessionsEl = document.getElementById("totalSessions");
+      const bestScoreEl = document.getElementById("bestScore");
+      const recentModeEl = document.getElementById("recentMode");
+      const avgDurationEl = document.getElementById("avgDuration");
+      console.log("Username:", localStorage.getItem("nf_loggedInUser")); // Debug
+
+      document
+        .getElementById("exportCsvBtn")
+        .addEventListener("click", exportToCSV);
+      // Initialize
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const saved = localStorage.getItem("therapySessions");
+        let sessions = [];
+
+        if (saved) {
+          sessions = JSON.parse(saved);
+
+          /* ──────── MIGRATION / RENAME ──────── */
+          let patched = false;
+          sessions.forEach((s) => {
+            // map each known game to its mode-name label
+            if (s.game === "Flappy Bird" || s.game === "Grip Therapy") {
+              s.game = "Grip Mode";
+              s.mode = "grip";
+              patched = true;
+            }
+            if (s.game === "Squat Tracker") {
+              s.game = "Normal Mode";
+              s.mode = "normal";
+              patched = true;
+            }
+            if (s.game === "Memory Match") {
+              s.game = "Game Mode";
+              s.mode = "game";
+              patched = true;
+            }
+            if (s.game === "Speech Therapy") {
+              s.game = "Speech Mode";
+              s.mode = "speech";
+              patched = true;
+            }
+          });
+          if (patched) {
+            localStorage.setItem("therapySessions", JSON.stringify(sessions));
+          }
+
+          // Assign unique IDs if not already present
+          let modified = false;
+          sessions.forEach((s, index) => {
+            if (!s.id) {
+              s.id = `${Date.now()}-${index}`; // fallback ID if crypto not supported
+              modified = true;
+            }
+          });
+          if (modified) {
+            console.log("Assigned missing IDs to old sessions.");
+            localStorage.setItem("therapySessions", JSON.stringify(sessions));
+          }
+          /* ──────────────────────────────────── */
+
+          sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
+        renderSessions(sessions);
+        updateStats(sessions);
+      });
+
+      // Event listeners
+      filterMode.addEventListener("change", () => {
+        const stored = localStorage.getItem("therapySessions");
+        const sessions = stored ? JSON.parse(stored) : [];
+        renderSessions(sessions);
+      });
+
+      sortDateBtn.addEventListener("click", () => {
+        const stored = localStorage.getItem("therapySessions");
+        let sessions = [];
+
+        if (stored) {
+          sessions = JSON.parse(stored);
+          if (sortDateBtn.dataset.sort === "desc") {
+            sessions.sort((a, b) => new Date(a.date) - new Date(b.date));
+            sortDateBtn.dataset.sort = "asc";
+            sortDateBtn.innerHTML =
+              '<i class="fas fa-sort-amount-up"></i> Date';
+          } else {
+            sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            sortDateBtn.dataset.sort = "desc";
+            sortDateBtn.innerHTML =
+              '<i class="fas fa-sort-amount-down"></i> Date';
+          }
+          renderSessions(sessions);
+        }
+      });
+
+      // Render sessions
+      function renderSessions(sessions) {
+        const filterValue = filterMode.value;
+        let filteredSessions = sessions;
+
+        if (filterValue !== "all") {
+          filteredSessions = sessions.filter(
+            (session) => session.mode === filterValue
+          );
+        }
+
+        if (filteredSessions.length === 0) {
+          recordsContainer.innerHTML = `
+                        <div class="empty-state">
+                          <i class="fas fa-search empty-icon"></i>
+                          <p>No sessions found for this filter.</p>
+                        </div>`;
+          return;
+        }
+
+        recordsContainer.innerHTML = filteredSessions
+          .map(
+            (session) => `
+            <div class="record-item">
+              <div class="record-content">
+                <div class="record-info">
+                  <div class="record-icon ${getModeClass(session.mode)}">
+                    ${getModeIcon(session.mode)}
+                  </div>
+                  <div class="record-details">
+                    <h3>${session.game}</h3>
+                    <div class="record-meta">
+  <span class="record-mode ${getModeClass(session.mode)}">
+    ${capitalizeFirstLetter(session.mode)} Mode
+  </span>
+  ${
+    session.difficulty
+      ? `<span class="record-difficulty">${capitalizeFirstLetter(
+          session.difficulty
+        )}</span>`
+      : ""
+  }
+  ${session.duration ? `<span>${formatDuration(session.duration)}</span>` : ""}
+</div>
+
+                  </div>
+                </div>
+                <div class="record-stats">
+        <p class="record-date">${formatDate(session.date)}</p>
+        ${
+          session.score
+            ? `<p class="record-score">Score: ${session.score}</p>`
+            : ""
+        }
+        ${
+          session.id
+            ? `<button class="delete-btn" onclick="deleteSession('${session.id}')">
+               <i class="fas fa-trash-alt"></i>
+             </button>`
+            : "<!-- No ID available to delete -->"
+        }
+
+      </div>
+
+              </div>
+            </div>
+            `
+          )
+          .join("");
+      }
+
+      // Update stats - MODIFIED TO MATCH YOUR REFERENCE CODE
+      function updateStats(sessions) {
+        totalSessionsEl.textContent = sessions.length;
+
+        if (sessions.length > 0) {
+          // Best score (Grip Mode) or longest duration (others)
+          const gripSessions = sessions.filter((s) => s.mode === "grip");
+          const otherSessions = sessions.filter((s) => s.mode !== "grip");
+
+          const bestGripScore =
+            gripSessions.length > 0
+              ? Math.max(...gripSessions.map((s) => s.score || 0))
+              : 0;
+
+          const bestDuration =
+            otherSessions.length > 0
+              ? Math.max(...otherSessions.map((s) => s.duration || 0))
+              : 0;
+
+          bestScoreEl.textContent =
+            bestGripScore > 0
+              ? bestGripScore
+              : `${formatDuration(bestDuration)}`;
+
+          // Recent mode
+          recentModeEl.textContent =
+            sessions[0].game || capitalizeFirstLetter(sessions[0].mode);
+
+          // Average duration
+          const totalDuration = sessions.reduce(
+            (sum, s) => sum + (s.duration || 0),
+            0
+          );
+          avgDurationEl.textContent = formatDuration(
+            Math.round(totalDuration / sessions.length)
+          );
+        } else {
+          bestScoreEl.textContent = "0";
+          recentModeEl.textContent = "-";
+          avgDurationEl.textContent = "0m";
+        }
+      }
+
+      // Helper functions
+      function capitalizeFirstLetter(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+      }
+
+      function formatDate(dateString) {
+        const opts = { year: "numeric", month: "short", day: "numeric" };
+        return new Date(dateString).toLocaleDateString(undefined, opts);
+      }
+
+      function getModeClass(mode) {
+        return `mode-${mode}`;
+      }
+
+      function getModeIcon(mode) {
+        const icons = {
+          grip: '<i class="fas fa-hand-paper"></i>',
+          game: '<i class="fas fa-gamepad"></i>',
+          normal: '<i class="fas fa-heartbeat"></i>',
+          speech: '<i class="fas fa-comment-dots"></i>',
+        };
+        return icons[mode] || '<i class="fas fa-question"></i>';
+      }
+
+      function formatDuration(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        if (m === 0) return `${s}s`;
+        if (s === 0) return `${m}m`;
+        return `${m}m ${s}s`;
+      }
+
+      function exportToCSV() {
+        // Get saved sessions from localStorage
+        const sessions =
+          JSON.parse(localStorage.getItem("therapySessions")) || [];
+
+        // If no sessions, show an alert
+        if (sessions.length === 0) {
+          alert("No session data to export!");
+          return;
+        }
+
+        // Create CSV header row
+        let csv = "Date,Mode,Game,Score,Duration (s),Username\n";
+
+        // Add each session as a row in the CSV
+        sessions.forEach((session) => {
+          const username =
+            session.username ||
+            localStorage.getItem("nf_loggedInUser") ||
+            "guest";
+          csv += `"${session.date}","${session.mode}","${session.game}","${
+            session.score || ""
+          }","${session.duration || ""}","${username}"\n`;
+        });
+
+        // Create a downloadable file
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "therapy_sessions.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      // Replace with your Google Apps Script URL
+      const WEB_APP_URL =
+        "https://script.google.com/macros/s/AKfycbzY-mVoh7f1QF8yBITfLMK_nST_qSM62OAl7SdkP7BnNUMqgxmfSslMc_oemcXT-N01Qw/exec;";
+
+      async function syncToGoogleSheets() {
+        const sessions =
+          JSON.parse(localStorage.getItem("therapySessions")) || [];
+        const username = localStorage.getItem("nf_loggedInUser") || "guest";
+
+        if (sessions.length === 0) {
+          alert("No sessions to sync!");
+          return;
+        }
+
+        try {
+          // Show loading indicator
+          const syncBtn = document.getElementById("syncSheetsBtn");
+          const originalText = syncBtn.innerHTML;
+          syncBtn.innerHTML =
+            '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+          syncBtn.disabled = true;
+
+          // Prepare data with username
+          const dataWithUsername = sessions.map((session) => ({
+            date: session.date || "",
+            mode: session.mode || "",
+            game: session.game || "",
+            score: session.score || "",
+            duration: session.duration || "",
+            difficulty: session.difficulty || "",
+            username: username || "guest",
+          }));
+
+          // Send all data in one batch
+          console.log(
+            "Sending to Google Sheets:",
+            JSON.stringify(dataWithUsername, null, 2)
+          );
+          const formData = new FormData();
+          formData.append(
+            "payload",
+            JSON.stringify({
+              action: "syncSessions",
+              data: dataWithUsername,
+            })
+          );
+
+          await fetch(WEB_APP_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: formData,
+          });
+
+          // Restore button state
+          syncBtn.innerHTML = originalText;
+          syncBtn.disabled = false;
+
+          alert("Data successfully synced to Google Sheets!");
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Error syncing: " + error.message);
+
+          // Restore button state even if error
+          const syncBtn = document.getElementById("syncSheetsBtn");
+          syncBtn.innerHTML =
+            '<i class="fas fa-cloud-upload-alt"></i> Sync to Google Sheets';
+          syncBtn.disabled = false;
+        }
+      }
+      document
+        .getElementById("testConnectionBtn")
+        .addEventListener("click", async () => {
+          try {
+            const response = await fetch(`${WEB_APP_URL}?test=true`);
+            const result = await response.text();
+            alert("Connection successful! Response: " + result);
+          } catch (error) {
+            alert("Connection failed: " + error.message);
+          }
+        });
+
+      // Add event listener for the sync button
+      document
+        .getElementById("syncSheetsBtn")
+        .addEventListener("click", syncToGoogleSheets);
+
+      // Function to send data to Google Sheets
+
+      function deleteSession(id) {
+        let sessions =
+          JSON.parse(localStorage.getItem("therapySessions")) || [];
+        sessions = sessions.filter((s) => s.id !== id);
+        localStorage.setItem("therapySessions", JSON.stringify(sessions));
+        renderSessions(sessions);
+        updateStats(sessions);
+      }
+    </script>
+  </body>
+</html>

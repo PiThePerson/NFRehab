@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Equip Items</title>
+    <link rel="stylesheet" href="css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      .category-container {
+        margin-bottom: 30px;
+        background: #f5f5f5;
+        padding: 20px;
+        border-radius: 10px;
+      }
+      .category-title {
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+        color: #333;
+        border-bottom: 2px solid #ddd;
+        padding-bottom: 5px;
+      }
+      .inventory-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+      }
+      .inventory-item {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .inventory-item img {
+        max-width: 100%;
+        height: 120px;
+        object-fit: contain;
+        margin-bottom: 10px;
+      }
+      .equip-btn {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .equip-btn:hover {
+        background: #45a049;
+      }
+      .empty-message {
+        color: #666;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="shop-header">
+        <a href="dashboard.html" class="back-button"
+          ><i class="fas fa-arrow-left"></i> Back to Dashboard</a
+        >
+        <div class="shop-title">Equip Items</div>
+        <div class="star-count">🌟 <span id="starBalance">0</span></div>
+      </div>
+
+      <div class="category-container">
+        <h2 class="category-title">🎴 Card Skins</h2>
+        <div class="inventory-grid" id="cardSkinsContainer">
+          <!-- Will be populated by JavaScript -->
+        </div>
+      </div>
+
+      <div class="category-container">
+        <h2 class="category-title">🎵 Song Themes</h2>
+        <div class="inventory-grid" id="songThemesContainer">
+          <!-- Will be populated by JavaScript -->
+        </div>
+      </div>
+
+      <div class="category-container">
+        <h2 class="category-title">🎨 Backgrounds</h2>
+        <div class="inventory-grid" id="backgroundsContainer">
+          <!-- Will be populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+      const INVENTORY_KEY = "nf_inventory";
+      const EQUIPPED_KEY = "nf_equipped";
+
+      let currentUser, users, inventory, equipped;
+
+      function refreshStars() {
+        currentUser = localStorage.getItem(USER_KEY);
+        users = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+        inventory = JSON.parse(localStorage.getItem(INVENTORY_KEY) || "{}");
+        equipped = JSON.parse(localStorage.getItem(EQUIPPED_KEY) || "{}");
+
+        if (!currentUser || !users[currentUser]) {
+          window.location.href = "login.html";
+          return;
+        }
+
+        document.getElementById("starBalance").textContent =
+          users[currentUser].stars ?? 0;
+
+        // Load inventory
+        loadInventory();
+      }
+
+      function loadInventory() {
+        const userInventory = inventory[currentUser] || { skins: [] };
+        const userEquipped = equipped[currentUser] || {};
+
+        // Card Skins
+        const cardSkinsContainer =
+          document.getElementById("cardSkinsContainer");
+        cardSkinsContainer.innerHTML = "";
+
+        if (userInventory.skins && userInventory.skins.length > 0) {
+          userInventory.skins.forEach((skin) => {
+            const itemDiv = document.createElement("div");
+            itemDiv.className = "inventory-item";
+
+            const img = document.createElement("img");
+            img.src = skin;
+            img.alt = "Card Skin";
+
+            const equipBtn = document.createElement("button");
+            equipBtn.className = "equip-btn";
+            equipBtn.textContent =
+              userEquipped.skin === skin ? "Equipped" : "Equip";
+            equipBtn.onclick = () => equipItem("skin", skin);
+
+            itemDiv.appendChild(img);
+            itemDiv.appendChild(equipBtn);
+            cardSkinsContainer.appendChild(itemDiv);
+          });
+        } else {
+          cardSkinsContainer.innerHTML =
+            '<p class="empty-message">No card skins purchased yet</p>';
+        }
+
+        // Song Themes (would be similar pattern)
+        document.getElementById("songThemesContainer").innerHTML =
+          '<p class="empty-message">No song themes purchased yet</p>';
+
+        // Backgrounds (would be similar pattern)
+        document.getElementById("backgroundsContainer").innerHTML =
+          '<p class="empty-message">No backgrounds purchased yet</p>';
+      }
+
+      function equipItem(type, item) {
+        if (!equipped[currentUser]) {
+          equipped[currentUser] = {};
+        }
+        equipped[currentUser][type] = item;
+        localStorage.setItem(EQUIPPED_KEY, JSON.stringify(equipped));
+
+        // Update UI
+        loadInventory();
+
+        // For skins, also update the active skin in memory game
+        if (type === "skin") {
+          localStorage.setItem("nf_skin", item);
+          alert("Card skin equipped successfully!");
+        }
+      }
+
+      // Initialize
+      refreshStars();
+      window.addEventListener("storage", refreshStars);
+      window.addEventListener("focus", refreshStars);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,106 @@
+/* ==============================
+   GLOBAL STYLES (styles.css)
+   ============================== */
+
+/* GENERAL BODY RESET */
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(
+    270deg,
+    #3ce3a4 0%,
+    #35d8ca 43%,
+    #31d1e1 58%,
+    #2fc9ff 100%
+  );
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* PAGE CONTAINER */
+.container,
+.page-container,
+.dashboard-container,
+.speech-container,
+.game-container {
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+/* BACK BUTTON (Standardized across all pages) */
+.back-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: #0056b3;
+}
+
+/* STAR COUNT ELEMENT (Unified Styling) */
+.star-count,
+.star-display {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffc107;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* PAGE TITLES (H1 standardization) */
+h1,
+.shop-title,
+.therapy-title,
+.page-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+/* COMMON FLEX UTILITIES */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* GENERAL BUTTON STYLE BASE (Override locally only if needed) */
+button {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+/* LANGUAGE TOGGLE STYLE (Used in speech/its) */
+.language-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  font-weight: 600;
+}

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Exercise Tutorial</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../../css/main.css" />
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        overflow: hidden;
+        background: linear-gradient(
+          270deg,
+          #3ce3a4 0%,
+          #35d8ca 43%,
+          #31d1e1 58%,
+          #2fc9ff 100%
+        );
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      .container {
+        width: 90%;
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+      }
+
+      header h1 {
+        flex: 1;
+        margin: 0;
+        text-align: center;
+        font-size: 1.4rem;
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+
+      header a.back-button {
+        text-decoration: none;
+        color: #fff;
+        font-size: 0.9rem;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        transition: background 0.2s;
+      }
+
+      header a.back-button:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      .video-wrapper {
+        position: relative;
+        width: 90%;
+        height: 497px;
+        max-width: 1080px;
+        margin: 0 auto 2.5rem auto;
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .video-wrapper iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+      }
+
+      .play-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 120px;
+        height: 120px;
+        border: none;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.45);
+        color: #ffffff;
+        font-size: 3rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.25s;
+      }
+
+      .play-overlay:hover {
+        background: rgba(0, 0, 0, 0.6);
+        transform: translate(-50%, -50%) scale(1.05);
+      }
+
+      .ready-button {
+        display: block;
+        margin: 0 auto 3rem auto;
+        padding: 0.9rem 3rem;
+        font-size: 1.2rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 9999px;
+        color: #fff;
+        background: linear-gradient(45deg, #ff6b6b, #ffa500);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        animation: pulse 2s infinite ease-in-out;
+      }
+
+      .ready-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.04);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      footer {
+        text-align: center;
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.8);
+        padding: 1rem 0 2rem 0;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <a href="mmsel.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Back
+        </a>
+        <h1>Tutorial – Squat Exercise</h1>
+      </header>
+
+      <div class="video-wrapper">
+        <iframe
+          id="ytPlayer"
+          title="Squat tutorial"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          style="display: none"
+        ></iframe>
+        <button id="playOverlay" class="play-overlay" aria-label="Play video">
+          <i class="fas fa-play"></i>
+        </button>
+      </div>
+
+      <button class="ready-button" onclick="window.location.href='mmsel.html'">
+        ✅ I'm Ready – Let's Go!
+      </button>
+    </div>
+
+    <script>
+      const overlay = document.getElementById("playOverlay");
+      const ytPlayer = document.getElementById("ytPlayer");
+
+      overlay.addEventListener("click", () => {
+        const embedURL =
+          "https://www.youtube.com/embed/y4y9xcptWUw?autoplay=1&mute=0&rel=0";
+        ytPlayer.src = embedURL;
+        ytPlayer.style.display = "block";
+        overlay.style.display = "none";
+      });
+    </script>
+  </body>
+</html>

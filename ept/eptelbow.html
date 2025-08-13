@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elbow Flex Tracker</title>
+
+    <!-- external styles -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../css/ept.css" />
+    <link rel="stylesheet" href="../css/main.css" />
+
+    <style>
+      /* ───── DASHBOARD OVERLAY ───── */
+      .dashboard-overlay {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 10px;
+        padding: 15px;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        backdrop-filter: blur(5px);
+      }
+
+      .dashboard-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .back-button {
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      .star-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      /* Clean dashboard layout */
+      .dashboard-header {
+        display: none; /* Hide the old header */
+      }
+
+      /* ───── MAIN AREA ───── */
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .video-wrapper {
+        position: relative;
+        flex-grow: 1;
+        overflow: hidden;
+      }
+
+      #video,
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .hud {
+        position: absolute;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 1.2rem;
+        font-weight: bold;
+      }
+
+      .top-left {
+        top: 20px;
+        left: 20px;
+      }
+
+      .top-right {
+        top: 20px;
+        right: 20px;
+      }
+
+      .status-indicator {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 1rem;
+      }
+
+      #feedback {
+        position: absolute;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.5); /* 50% transparency */
+        color: white;
+        padding: 8px 20px;
+        border-radius: 12px; /* More rounded corners */
+        font-size: 1.1rem;
+        font-weight: bold;
+        display: none;
+        z-index: 20;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        line-height: 1.4;
+        min-width: 120px;
+        text-align: center;
+        backdrop-filter: blur(
+          4px
+        ); /* Optional: adds slight blur effect behind text */
+      }
+
+      .quality-indicator {
+        position: absolute;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        /* Rest of your existing styles */
+      }
+      .quality-good {
+        background: rgba(40, 167, 69, 0.7);
+      }
+
+      .quality-warning {
+        background: rgba(255, 193, 7, 0.7);
+      }
+
+      .quality-poor {
+        background: rgba(220, 53, 69, 0.7);
+      }
+
+      /* controls */
+      .controls {
+        padding: 1rem;
+        background-color: rgba(52, 73, 94, 0.7);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .controls button {
+        background: linear-gradient(45deg, #ff6b6b, #ffa500);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .controls button:hover {
+        opacity: 0.9;
+      }
+
+      .timer {
+        color: white;
+        font-weight: bold;
+        margin-left: auto;
+      }
+
+      /* stat boxes */
+      .armraise-stats {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      .stat-box {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 1rem;
+        min-width: 150px;
+        text-align: center;
+      }
+
+      .stat-label {
+        font-size: 0.9rem;
+        color: #ccc;
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: white;
+      }
+
+      /* win screen */
+      #winScreen {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .win-content {
+        background: rgba(30, 30, 40, 0.95);
+        border-radius: 15px;
+        padding: 30px;
+        max-width: 600px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .win-title {
+        color: #fff;
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
+      }
+
+      .time-display,
+      .best-time-display {
+        color: #fff;
+        font-size: 1.5rem;
+        margin: 15px 0;
+      }
+
+      .best-time-display {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .record-badge {
+        background: gold;
+        color: #333;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 1rem;
+      }
+
+      #starsContainer {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      #starsContainer span {
+        font-size: 2.5rem;
+        animation: starPulse 1.5s infinite alternate;
+      }
+
+      @keyframes starPulse {
+        from {
+          transform: scale(1);
+        }
+        to {
+          transform: scale(1.2);
+        }
+      }
+
+      .win-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 25px;
+        flex-wrap: wrap;
+      }
+
+      .win-buttons button {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .play-again-btn {
+        background: linear-gradient(45deg, #ff6b6b, #ffa500);
+        color: white;
+      }
+
+      .next-btn {
+        background: linear-gradient(45deg, #1e90ff, #00bfff);
+        color: white;
+      }
+
+      .win-buttons button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Camera selection in controls */
+      .camera-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .camera-select {
+        background: rgba(0, 0, 0, 0.6);
+        color: #ffffff;
+        border: 1px solid #444;
+        border-radius: 6px;
+        padding: 0.5rem;
+        max-width: 200px;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .dashboard-overlay {
+          top: 10px;
+          left: 10px;
+          padding: 10px;
+        }
+
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .timer {
+          margin-left: 0;
+          text-align: center;
+        }
+
+        .armraise-stats {
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .win-buttons {
+          flex-direction: column;
+        }
+
+        .win-buttons button {
+          width: 100%;
+        }
+
+        .camera-control {
+          width: 100%;
+          justify-content: center;
+        }
+
+        .camera-select {
+          max-width: 100%;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ───── DASHBOARD OVERLAY ───── -->
+    <div class="dashboard-overlay">
+      <div class="dashboard-item">
+        <a class="back-button" href="/dashboard.html">
+          <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+      </div>
+      <div class="dashboard-item star-display">
+        <i class="fas fa-star"></i> Stars: <span id="starBalance">0</span>
+      </div>
+    </div>
+
+    <!-- ───── MAIN AREA ───── -->
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+
+        <div class="hud top-left" id="angleDisplay">Angle: --°</div>
+        <div class="hud top-right" id="counterDisplay">Elbows: 0</div>
+
+        <div class="status-indicator" id="statusIndicator"></div>
+        <div id="feedback"></div>
+
+        <div id="qualityIndicator" class="quality-indicator quality-good">
+          Perfect Form ✅
+        </div>
+      </div>
+
+      <!-- controls -->
+      <div class="controls">
+        <button id="startBtn">
+          <i class="fas fa-play"></i> Start Tracking
+        </button>
+        <button id="resetBtn"><i class="fas fa-redo"></i> Reset Count</button>
+        <button id="calibrateBtn"><i class="fas fa-cog"></i> Calibrate</button>
+        <button onclick="location.href='eptsel.html'">
+          Return to Selection Screen
+        </button>
+
+        <div class="camera-control">
+          <label for="cameraSelect">Camera:</label>
+          <select id="cameraSelect" class="camera-select"></select>
+        </div>
+
+        <div class="timer">⏱️ Time: <span id="sessionTime">0</span>s</div>
+      </div>
+
+      <!-- stat boxes -->
+      <div class="armraise-stats">
+        <div class="stat-box">
+          <div class="stat-label">Elbow Flexion Count</div>
+          <div class="stat-value" id="armraiseCount">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Current State</div>
+          <div class="stat-value" id="state">ready</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Arm Angle</div>
+          <div class="stat-value" id="armAngle">--°</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Threshold</div>
+          <div class="stat-value" id="threshold">--°</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- win screen -->
+    <div id="winScreen" style="display: none">
+      <div class="win-content">
+        <h1 class="win-title">Workout Complete!</h1>
+        <div class="time-display">Time: <span id="finalTime">00:00</span></div>
+        <div class="best-time-display">
+          Best Time: <span id="bestTime">--:--</span>
+          <span class="record-badge" style="display: none">New Record!</span>
+        </div>
+        <div id="starsContainer" style="margin: 1rem 0"></div>
+        <div class="win-buttons">
+          <button class="play-again-btn" onclick="playAgain()">
+            <i class="fas fa-redo"></i> Play Again
+          </button>
+          <button class="next-btn" onclick="nextLevel()">
+            Next <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mediapipe -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+      crossorigin="anonymous"
+    ></script>
+
+    <!-- ───── CORE SCRIPT ───── -->
+    <script>
+      /* ----------- Constants for arm-only drawing ----------- */
+      const ARM_CONNECTIONS = [
+        [11, 13],
+        [13, 15],
+        [12, 14],
+        [14, 16],
+      ];
+      const ARM_LANDMARKS = [11, 12, 13, 14, 15, 16];
+
+      /* ----------- Local-storage helpers ----------- */
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+      const CAM_KEY = "nf_selectedCamera";
+
+      const readDB = () => JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+      const writeDB = (db) =>
+        localStorage.setItem(USERS_KEY, JSON.stringify(db));
+      const currentUser = () => localStorage.getItem(USER_KEY);
+
+      /* ======================================================
+         CLASS : AdvancedArmRaiseTracker
+      ====================================================== */
+      class AdvancedArmRaiseTracker {
+        constructor() {
+          /* ----------- configuration from eptsel.html ----------- */
+          const cfg = JSON.parse(localStorage.getItem("exerciseMode") || "{}");
+
+          /* reps & angle thresholds come from cfg */
+          this.targetReps = cfg.reps || 10;
+          this.raiseT =
+            cfg.threshold !== undefined && !isNaN(cfg.threshold)
+              ? cfg.threshold
+              : 90; // default 90°
+          this.lowerT = this.raiseT - 30; // simple buffer for lowering arms
+
+          /* ----------- DOM handles ----------- */
+          this.video = document.getElementById("video");
+          this.canvas = document.getElementById("canvas");
+          this.ctx = this.canvas.getContext("2d");
+
+          /* ----------- initial state ----------- */
+          this.armraiseCount = 0;
+          this.isTracking = false;
+          this.armPos = "down";
+          this.lastValidRaise = 0;
+          this.historySize = 8;
+          this.armHistory = [];
+          this.minDur = 300;
+          this.maxDur = 8000;
+          this.smoothing = 0.55;
+
+          /* show chosen threshold in HUD */
+          document.getElementById("threshold").textContent = this.raiseT + "°";
+
+          /* ----------- Mediapipe Pose ----------- */
+          this.pose = new Pose({
+            locateFile: (f) =>
+              `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`,
+          });
+          this.pose.setOptions({
+            modelComplexity: 2,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7,
+          });
+          this.pose.onResults((r) => this.onResults(r));
+
+          /* ----------- UI / Camera / Stars ----------- */
+          this.bindEvents();
+          this.startSession();
+          this.loadStars();
+          this.setupCamera();
+        }
+
+        /* ---------------- Star helpers ---------------- */
+        loadStars() {
+          const u = currentUser();
+          const db = readDB();
+          document.getElementById("starBalance").textContent =
+            u && db[u] ? db[u].stars || 0 : 0;
+        }
+
+        addStars(n = 1) {
+          const u = currentUser();
+          if (!u) return;
+          const db = readDB();
+          if (!db[u]) db[u] = { stars: 0 };
+          db[u].stars = (db[u].stars || 0) + n;
+          writeDB(db);
+          document.getElementById("starBalance").textContent = db[u].stars;
+        }
+
+        /* ---------------- Camera picker ---------------- */
+        async setupCamera() {
+          const sel = document.getElementById("cameraSelect");
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const cams = devs.filter((d) => d.kind === "videoinput");
+          sel.innerHTML = "";
+          cams.forEach((d, i) => {
+            const o = document.createElement("option");
+            o.value = d.deviceId;
+            o.textContent = d.label || `Camera ${i + 1}`;
+            sel.appendChild(o);
+          });
+          const saved = localStorage.getItem(CAM_KEY) || cams[0]?.deviceId;
+          sel.value = saved;
+          sel.onchange = (e) => {
+            localStorage.setItem(CAM_KEY, e.target.value);
+            this.openStream(e.target.value);
+          };
+          this.openStream(saved);
+        }
+
+        async openStream(id) {
+          if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+          try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: id },
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+              },
+              audio: false,
+            });
+            this.video.srcObject = this.stream;
+            await this.video.play();
+            if (!this.raf) this.poseLoop();
+          } catch (e) {
+            alert("Camera error: " + e.message);
+            console.error(e);
+          }
+        }
+
+        poseLoop() {
+          const step = async () => {
+            if (this.isTracking && this.video.readyState >= 2) {
+              await this.pose.send({ image: this.video });
+            }
+            this.raf = requestAnimationFrame(step);
+          };
+          step();
+        }
+
+        /* ---------------- UI events ---------------- */
+        bindEvents() {
+          document.getElementById("startBtn").onclick = () => this.toggle();
+          document.getElementById("resetBtn").onclick = () => this.reset();
+          document.getElementById("calibrateBtn").onclick = () =>
+            alert(
+              "Lower arms for 3 s then raise for 3 s – simple calibration."
+            );
+          window.addEventListener("storage", () => this.loadStars());
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) this.loadStars();
+          });
+        }
+
+        /* ---------------- Timer ---------------- */
+        startSession() {
+          this.start = Date.now();
+          this.timer = setInterval(() => {
+            document.getElementById("sessionTime").textContent = Math.floor(
+              (Date.now() - this.start) / 1000
+            );
+          }, 1000);
+        }
+
+        /* ---------------- Tracking controls ---------------- */
+        toggle() {
+          this.isTracking = !this.isTracking;
+          const btn = document.getElementById("startBtn");
+          btn.innerHTML = this.isTracking
+            ? "⏸️ Stop Tracking"
+            : '<i class="fas fa-play"></i> Start Tracking';
+          btn.style.background = this.isTracking
+            ? "linear-gradient(45deg, #f44336, #ff9800)"
+            : "linear-gradient(45deg, #ff6b6b, #ffa500)";
+        }
+
+        reset() {
+          this.armraiseCount = 0;
+          this.armPos = "down";
+          this.armHistory = [];
+          this.updateHUD();
+        }
+
+        /* ---------------- Pose results ---------------- */
+        onResults(res) {
+          this.draw(res);
+          if (res.poseLandmarks && this.isTracking) {
+            const a = this.analyse(res.poseLandmarks);
+            this.stateMachine(a);
+            this.updateHUD(a);
+          }
+        }
+
+        /* ---------------- Geometry ---------------- */
+        ang(a, b, c) {
+          const ab = [a.x - b.x, a.y - b.y];
+          const cb = [c.x - b.x, c.y - b.y];
+          const dot = ab[0] * cb[0] + ab[1] * cb[1];
+          return (
+            (Math.acos(
+              Math.min(
+                Math.max(dot / (Math.hypot(...ab) * Math.hypot(...cb)), -1),
+                1
+              )
+            ) *
+              180) /
+            Math.PI
+          );
+        }
+
+        smooth(v, arr) {
+          arr.push(v);
+          if (arr.length > this.historySize) arr.shift();
+          let wSum = 0;
+          let wTot = 0;
+          arr.forEach((x, i) => {
+            const w = Math.pow(this.smoothing, arr.length - 1 - i);
+            wSum += x * w;
+            wTot += w;
+          });
+          return wSum / wTot;
+        }
+
+        analyse(lm) {
+          // Track both arms and use the one with better visibility
+          const leftShoulder = lm[11];
+          const leftElbow = lm[13];
+          const leftWrist = lm[15];
+          const rightShoulder = lm[12];
+          const rightElbow = lm[14];
+          const rightWrist = lm[16];
+
+          // Calculate angles for both arms
+          const leftAngle = this.ang(leftShoulder, leftElbow, leftWrist);
+          const rightAngle = this.ang(rightShoulder, rightElbow, rightWrist);
+
+          // Calculate confidence for both arms
+          const leftConf = Math.min(
+            leftShoulder.visibility || 0,
+            leftElbow.visibility || 0,
+            leftWrist.visibility || 0
+          );
+          const rightConf = Math.min(
+            rightShoulder.visibility || 0,
+            rightElbow.visibility || 0,
+            rightWrist.visibility || 0
+          );
+
+          // Use the arm with better visibility
+          if (leftConf > rightConf) {
+            this.currentArm = "left";
+            return {
+              angle: leftAngle,
+              conf: leftConf,
+              landmarks: {
+                shoulder: leftShoulder,
+                elbow: leftElbow,
+                wrist: leftWrist,
+              },
+            };
+          } else {
+            this.currentArm = "right";
+            return {
+              angle: rightAngle,
+              conf: rightConf,
+              landmarks: {
+                shoulder: rightShoulder,
+                elbow: rightElbow,
+                wrist: rightWrist,
+              },
+            };
+          }
+        }
+
+        /* ---------------- Finite-state machine ---------------- */
+        stateMachine(a) {
+          if (a.conf < 0.4) {
+            this.quality("poor");
+            return;
+          }
+
+          if (this.armPos === "down" && a.angle > this.raiseT) {
+            this.armPos = "up";
+            this.raiseTime = Date.now();
+          } else if (this.armPos === "up" && a.angle < this.lowerT) {
+            if (Date.now() - this.raiseTime >= this.minDur) {
+              this.armPos = "down";
+              this.rep();
+            } else {
+              this.armPos = "down";
+            }
+          }
+
+          this.quality(a.angle > this.raiseT ? "good" : "warning");
+        }
+
+        rep() {
+          this.armraiseCount += 1;
+          this.addStars();
+          this.flash("Perfect Elbow Flexion! 🎉");
+
+          if (this.armraiseCount >= this.targetReps) {
+            this.finish();
+          }
+        }
+
+        /* ---------------- Finish session ---------------- */
+        finish() {
+          clearInterval(this.timer);
+          const total = Date.now() - this.start;
+
+          document.getElementById("finalTime").textContent = this.fmt(total);
+
+          const best = parseInt(
+            localStorage.getItem("bestArmRaiseTime") || 1e9,
+            10
+          );
+          if (total < best) {
+            localStorage.setItem("bestArmRaiseTime", total);
+            document.querySelector(".record-badge").style.display = "inline";
+          }
+          document.getElementById("bestTime").textContent = this.fmt(
+            Math.min(best, total)
+          );
+
+          /* star icons */
+          const box = document.getElementById("starsContainer");
+          box.innerHTML = "";
+          for (let i = 0; i < this.armraiseCount; i += 1) {
+            const s = document.createElement("span");
+            s.textContent = "🌟";
+            s.style.fontSize = "2rem";
+            box.appendChild(s);
+          }
+
+          /* history save */
+          try {
+            const h = JSON.parse(
+              localStorage.getItem("therapySessions") || "[]"
+            );
+            h.push({
+              date: new Date().toISOString(),
+              mode: "normal",
+              game: "Elbow Flexion Tracker",
+              duration: Math.round(total / 1000),
+            });
+            localStorage.setItem("therapySessions", JSON.stringify(h));
+          } catch (e) {
+            console.warn("history save failed", e);
+          }
+
+          document.getElementById("winScreen").style.display = "flex";
+          this.isTracking = false;
+          document.getElementById("startBtn").innerHTML =
+            '<i class="fas fa-play"></i> Start Tracking';
+        }
+
+        fmt(ms) {
+          const s = Math.floor(ms / 1000);
+          const m = Math.floor(s / 60);
+          return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(
+            2,
+            "0"
+          )}`;
+        }
+
+        /* ---------------- Visual helpers ---------------- */
+        quality(q) {
+          const el = document.getElementById("qualityIndicator");
+          el.textContent =
+            q === "good"
+              ? "Perfect Form ✅"
+              : q === "warning"
+              ? "Check Form ⚠️"
+              : "Poor Detection ❌";
+          el.className = `quality-indicator quality-${q}`;
+        }
+
+        flash(msg) {
+          const f = document.getElementById("feedback");
+          f.textContent = msg;
+          f.style.display = "block";
+          setTimeout(() => {
+            f.style.display = "none";
+          }, 2000);
+        }
+
+        /* ---------------- Drawing ---------------- */
+        draw(res) {
+          const c = this.canvas;
+          const ctx = this.ctx;
+          c.width = this.video.videoWidth || 640;
+          c.height = this.video.videoHeight || 480;
+          ctx.clearRect(0, 0, c.width, c.height);
+
+          /* mirror feed */
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.drawImage(this.video, -c.width, 0, c.width, c.height);
+          ctx.restore();
+
+          if (res.poseLandmarks) {
+            this.drawSkeleton(res.poseLandmarks);
+          }
+        }
+
+        drawSkeleton(lm) {
+          const c = this.canvas;
+          const ctx = this.ctx;
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.translate(-c.width, 0);
+
+          /* arms only */
+          drawConnectors(ctx, lm, ARM_CONNECTIONS, {
+            color: "#00FFAA",
+            lineWidth: 4,
+          });
+          drawLandmarks(
+            ctx,
+            ARM_LANDMARKS.map((i) => lm[i]),
+            {
+              color: "#FF0077",
+              fillColor: "#FF0077",
+              radius: 6,
+            }
+          );
+
+          ctx.restore();
+        }
+
+        /* ---------------- HUD update ---------------- */
+        updateHUD(a = null) {
+          document.getElementById("armraiseCount").textContent =
+            this.armraiseCount;
+          document.getElementById(
+            "counterDisplay"
+          ).textContent = `Elbow Flexions: ${this.armraiseCount}`;
+          document.getElementById("state").textContent = this.armPos;
+
+          if (a) {
+            document.getElementById(
+              "angleDisplay"
+            ).textContent = `Angle: ${Math.round(a.angle)}°`;
+            document.getElementById("armAngle").textContent = `${Math.round(
+              a.angle
+            )}°`;
+          }
+        }
+      }
+
+      /* ----------- Life-cycle boot ----------- */
+      window.addEventListener("load", () => new AdvancedArmRaiseTracker());
+
+      function playAgain() {
+        document.getElementById("winScreen").style.display = "none";
+        location.reload();
+      }
+
+      function nextLevel() {
+        document.getElementById("winScreen").style.display = "none";
+      }
+    </script>
+  </body>
+</html>

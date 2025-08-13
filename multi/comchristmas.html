@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memory Match - Multiplayer Mode</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../css/pts.css" />
+    <link rel="stylesheet" href="../../css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+
+    <!-- MediaPipe libs -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <style>
+      /* Dashboard styling - floating left overlay */
+      .dashboard-overlay {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
+        border-radius: 10px;
+        padding: 15px;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        backdrop-filter: blur(5px); /* Frosted glass effect */
+      }
+
+      .dashboard-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .back-button {
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      .star-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+      }
+
+      /* Team win styling */
+      .blue-win {
+        color: #0000ff;
+        font-weight: bold;
+        text-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
+      }
+      .red-win {
+        color: #ff0000;
+        font-weight: bold;
+        text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+      }
+      .team-win {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      /* Main container layout */
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .video-wrapper {
+        position: relative;
+        flex-grow: 1;
+        overflow: hidden;
+      }
+
+      #video,
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .controls {
+        padding: 1rem;
+        background-color: rgba(52, 73, 94, 0.7); /* Semi-transparent */
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .game-info {
+        display: flex;
+        gap: 1rem;
+        margin-left: auto;
+        color: white;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ───────────────────── DASHBOARD OVERLAY (left side) ───────────────────── -->
+    <div class="dashboard-overlay">
+      <div class="dashboard-item">
+        <a href="/dashboard.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+      </div>
+      <div class="dashboard-item star-display" id="starCount">
+        <i class="fas fa-star"></i>
+        <span id="starBalance">0</span> Stars
+      </div>
+    </div>
+
+    <!-- ───────────────────── MAIN LAYOUT ───────────────────── -->
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn"><i class="fas fa-play"></i> Start Game</button>
+        <button onclick="window.location.href='mmsel.html'">
+          Change Settings
+        </button>
+        <label for="cameraSelect" style="margin-left: 1rem">Camera:</label>
+        <select id="cameraSelect"></select>
+        <div class="game-info">
+          <div id="difficultyDisplay">Multiplayer Mode</div>
+          <div id="timeDisplay">Time: <span id="sessionTime">0</span>s</div>
+          <div id="timeLimitDisplay" style="display: none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────── WIN SCREEN ───────────────────── -->
+    <div id="winScreen" style="display: none">
+      <div class="win-content">
+        <!-- Trophy icon -->
+        <div class="trophy-glow">
+          <i class="fas fa-trophy"></i>
+        </div>
+
+        <!-- Title -->
+        <div class="win-title" id="winTitle">CONGRATULATIONS!</div>
+        <div class="team-win" id="teamWinDisplay"></div>
+        <p class="stat-label">Memory Match Completed</p>
+
+        <!-- Stats container -->
+        <div class="stats-container">
+          <div class="stat-row">
+            <span class="stat-label">Time:</span>
+            <span class="stat-value" id="winTimeDisplay">0s</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Best Time:</span>
+            <span class="stat-value" id="bestTimeDisplay">--</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Stars Earned:</span>
+            <div class="flex items-center">
+              <i class="fas fa-star text-yellow-400 star-pulse"></i>
+              <span class="stat-value" id="starsEarnedDisplay">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inspirational Quote -->
+        <div class="quote-box" id="winQuote">
+          "Teamwork makes the dream work! Great job working together!"
+        </div>
+
+        <!-- Buttons -->
+        <div class="win-buttons">
+          <button
+            class="win-btn bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800"
+            onclick="window.location.href='/dashboard.html'"
+          >
+            <i class="fas fa-home"></i> Home
+          </button>
+          <button
+            class="win-btn bg-blue-600 hover:bg-blue-700 text-white"
+            id="playAgainBtn"
+          >
+            <i class="fas fa-redo"></i> Play Again
+          </button>
+          <button
+            class="win-btn bg-indigo-600 hover:bg-indigo-700 text-white"
+            onclick="window.location.href='mmsel.html'"
+          >
+            <i class="fas fa-sliders-h"></i> Change Difficulty
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ★ 2-second "Memorize!" overlay -->
+    <div
+      id="memorizeOverlay"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 4rem;
+        font-weight: bold;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 999;
+      "
+    >
+      MEMORIZE!
+    </div>
+
+    <!-- Countdown overlay -->
+    <div
+      id="countdown"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 10rem;
+        font-weight: bold;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 999;
+      "
+    ></div>
+
+    <script>
+      /* ───────────────────────── STAR-BALANCE SYNC ───────────────────────── */
+      const USER_KEY = "nf_loggedInUser";
+      const USERS_KEY = "nf_users";
+
+      function refreshStars() {
+        const u = localStorage.getItem(USER_KEY);
+        const db = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+        if (!u || !db[u]) {
+          window.location.href = "/login.html";
+          return;
+        }
+
+        // Initialize bestTimes if it doesn't exist
+        if (!db[u].bestTimes) {
+          db[u].bestTimes = {};
+          localStorage.setItem(USERS_KEY, JSON.stringify(db));
+        }
+
+        document.getElementById("starBalance").textContent = db[u].stars ?? 0;
+      }
+      refreshStars();
+      window.addEventListener("storage", refreshStars);
+      window.addEventListener("focus", refreshStars);
+
+      /* ───────────────────────── GLOBALS ───────────────────────── */
+      const videoElement = document.getElementById("video");
+      const canvasElement = document.getElementById("canvas");
+      const ctx = canvasElement.getContext("2d");
+
+      const user = localStorage.getItem(USER_KEY);
+      const users = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+
+      canvasElement.width = window.innerWidth;
+      canvasElement.height = window.innerHeight;
+
+      // Get settings from localStorage
+      const settings = JSON.parse(
+        localStorage.getItem("memoryMatchMultiplayerSettings") || "{}"
+      );
+      const CARD_ROWS = settings.rows || 4;
+      const CARD_COLS = settings.cols || 1; // Per side
+      const CARD_WIDTH = 180;
+      const CARD_HEIGHT = 220;
+      const CARD_MARGIN = 20;
+      const GAP_BETWEEN_SIDES = 100; // Space between left and right card grids
+      const FLIP_HOLD_TIME = 1500; // ms hover to flip
+      const FLIP_DURATION = 600; // ms animation
+      const PREVIEW_DURATION = 2000; // 2 seconds
+      const TIME_LIMIT = 0; // No time limit for multiplayer
+
+      // Different shapes for each side
+      const leftShapes = ["circle", "square", "triangle"];
+      const rightShapes = ["star", "hex", "pentagon"];
+
+      /* ───────────────────────── Card class ───────────────────────── */
+      class Card {
+        constructor(x, y, shape, side) {
+          this.x = x;
+          this.y = y;
+          this.shape = shape;
+          this.side = side; // 'left' or 'right'
+
+          this.isFlipped = false;
+          this.isMatched = false;
+          this.hoverStart = null;
+
+          // flip animation
+          this.flipProgress = 1; // 1 = back, 0 = front
+          this.targetFaceUp = false;
+          this.flipStart = null;
+        }
+
+        startFlip(faceUp) {
+          if (this.targetFaceUp === faceUp && this.flipStart === null) return;
+          this.targetFaceUp = faceUp;
+          this.flipStart = performance.now();
+        }
+
+        tickFlip(now) {
+          if (this.flipStart === null) return false;
+          const t = Math.min((now - this.flipStart) / FLIP_DURATION, 1);
+          const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // easeInOutQuad
+          this.flipProgress = this.targetFaceUp ? 1 - eased : eased;
+          if (t === 1) {
+            this.flipStart = null;
+            this.isFlipped = this.targetFaceUp;
+          }
+          return true;
+        }
+
+        draw(ctx) {
+          ctx.save();
+
+          const angle = (1 - this.flipProgress) * Math.PI; // 0→π
+          ctx.translate(this.x + CARD_WIDTH / 2, this.y);
+          ctx.scale(Math.cos(angle), 1);
+          ctx.translate(-CARD_WIDTH / 2, 0);
+
+          // Card background
+          ctx.fillStyle =
+            this.isFlipped || this.isMatched
+              ? "#FFFFFF"
+              : this.side === "left"
+              ? "#0000FF"
+              : "#FF0000"; // Blue for left, Red for right
+          ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+
+          // Card border
+          ctx.strokeStyle = "#333";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+
+          // Card corners
+          ctx.fillStyle = "#FFF";
+          ctx.beginPath();
+          ctx.arc(0, 0, 10, 0, Math.PI * 2);
+          ctx.arc(CARD_WIDTH, 0, 10, 0, Math.PI * 2);
+          ctx.arc(0, CARD_HEIGHT, 10, 0, Math.PI * 2);
+          ctx.arc(CARD_WIDTH, CARD_HEIGHT, 10, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (this.isFlipped || this.isMatched) {
+            // Card face with symbol
+            ctx.fillStyle = "#000";
+            const cx = CARD_WIDTH / 2;
+            const cy = CARD_HEIGHT / 2;
+            ctx.beginPath();
+
+            switch (this.shape) {
+              case "circle":
+                ctx.arc(cx, cy, 40, 0, 2 * Math.PI);
+                break;
+              case "square":
+                ctx.rect(cx - 40, cy - 40, 80, 80);
+                break;
+              case "triangle":
+                ctx.moveTo(cx, cy - 50);
+                ctx.lineTo(cx - 50, cy + 40);
+                ctx.lineTo(cx + 50, cy + 40);
+                ctx.closePath();
+                break;
+              case "hex":
+                for (let i = 0; i < 6; i++) {
+                  const a = (Math.PI / 3) * i - Math.PI / 6;
+                  const x = cx + 50 * Math.cos(a);
+                  const y = cy + 50 * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "star":
+                for (let i = 0; i < 10; i++) {
+                  const a = (Math.PI / 5) * i - Math.PI / 2;
+                  const r = i % 2 === 0 ? 50 : 20;
+                  const x = cx + r * Math.cos(a);
+                  const y = cy + r * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case "pentagon":
+                for (let i = 0; i < 5; i++) {
+                  const a = ((Math.PI * 2) / 5) * i - Math.PI / 2;
+                  const x = cx + 50 * Math.cos(a);
+                  const y = cy + 50 * Math.sin(a);
+                  i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+            }
+
+            ctx.fill();
+          } else {
+            // Card back pattern
+            ctx.fillStyle = "#FFF";
+            for (let i = 0; i < 6; i++) {
+              for (let j = 0; j < 4; j++) {
+                const x = 10 + i * 30;
+                const y = 10 + j * 50;
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            }
+          }
+
+          ctx.restore();
+        }
+
+        contains(x, y) {
+          return (
+            x >= this.x &&
+            x <= this.x + CARD_WIDTH &&
+            y >= this.y &&
+            y <= this.y + CARD_HEIGHT
+          );
+        }
+      }
+
+      /* ───────────────────────── Game State ───────────────────────── */
+      const cards = [];
+      let leftSelectedCards = []; // Separate selection for left side
+      let rightSelectedCards = []; // Separate selection for right side
+      let startTime = null;
+      let gameStarted = false;
+      let revealTimeout = null;
+      let timeLimitTimeout = null;
+      let timerInterval = null;
+      let leftSideCompleted = false;
+      let rightSideCompleted = false;
+
+      /* ───────────────────────── create deck ───────────────────────── */
+      function createCards() {
+        // Create left side cards (blue)
+        const leftTotal = CARD_ROWS * CARD_COLS;
+        const leftPool = [];
+
+        // Create enough pairs by repeating the left shapes
+        const leftPairsNeeded = leftTotal / 2;
+        const leftRepeats = Math.ceil(leftPairsNeeded / leftShapes.length);
+
+        for (let i = 0; i < leftRepeats; i++) {
+          for (const shape of leftShapes) {
+            leftPool.push(shape, shape);
+            if (leftPool.length >= leftTotal) break;
+          }
+          if (leftPool.length >= leftTotal) break;
+        }
+
+        // Create right side cards (red)
+        const rightTotal = CARD_ROWS * CARD_COLS;
+        const rightPool = [];
+
+        // Create enough pairs by repeating the right shapes
+        const rightPairsNeeded = rightTotal / 2;
+        const rightRepeats = Math.ceil(rightPairsNeeded / rightShapes.length);
+
+        for (let i = 0; i < rightRepeats; i++) {
+          for (const shape of rightShapes) {
+            rightPool.push(shape, shape);
+            if (rightPool.length >= rightTotal) break;
+          }
+          if (rightPool.length >= rightTotal) break;
+        }
+
+        // shuffle each side separately
+        for (let i = leftPool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [leftPool[i], leftPool[j]] = [leftPool[j], leftPool[i]];
+        }
+        for (let i = rightPool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [rightPool[i], rightPool[j]] = [rightPool[j], rightPool[i]];
+        }
+
+        cards.length = 0;
+
+        // Calculate positions for left side
+        const leftWidth =
+          CARD_COLS * CARD_WIDTH + (CARD_COLS - 1) * CARD_MARGIN;
+        const rightWidth =
+          CARD_COLS * CARD_WIDTH + (CARD_COLS - 1) * CARD_MARGIN;
+        const totalWidth = leftWidth + GAP_BETWEEN_SIDES + rightWidth;
+        const totalHeight =
+          CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_MARGIN;
+
+        const leftStartX = (canvasElement.width - totalWidth) / 2;
+        const leftStartY = (canvasElement.height - totalHeight) / 2;
+
+        // Calculate positions for right side
+        const rightStartX = leftStartX + leftWidth + GAP_BETWEEN_SIDES;
+        const rightStartY = leftStartY;
+
+        // Create left side cards
+        for (let r = 0; r < CARD_ROWS; r++) {
+          for (let c = 0; c < CARD_COLS; c++) {
+            const x = leftStartX + c * (CARD_WIDTH + CARD_MARGIN);
+            const y = leftStartY + r * (CARD_HEIGHT + CARD_MARGIN);
+            cards.push(new Card(x, y, leftPool.pop(), "left"));
+          }
+        }
+
+        // Create right side cards
+        for (let r = 0; r < CARD_ROWS; r++) {
+          for (let c = 0; c < CARD_COLS; c++) {
+            const x = rightStartX + c * (CARD_WIDTH + CARD_MARGIN);
+            const y = rightStartY + r * (CARD_HEIGHT + CARD_MARGIN);
+            cards.push(new Card(x, y, rightPool.pop(), "right"));
+          }
+        }
+      }
+
+      /* ───────────────────────── drawing & timer ───────────────────────── */
+      function drawCards() {
+        // clear + draw webcam mirror
+        ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          videoElement,
+          -canvasElement.width,
+          0,
+          canvasElement.width,
+          canvasElement.height
+        );
+        ctx.restore();
+
+        // draw cards
+        const now = performance.now();
+        let needsRedraw = false;
+        cards.forEach((c) => {
+          if (c.tickFlip(now)) needsRedraw = true;
+          c.draw(ctx);
+        });
+        if (needsRedraw) requestAnimationFrame(drawCards);
+      }
+
+      function updateTimer() {
+        if (!gameStarted) return;
+
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("sessionTime").textContent = elapsed;
+      }
+
+      function showCountdown(seconds, callback) {
+        const countdown = document.getElementById("countdown");
+        countdown.style.display = "flex";
+
+        let remaining = seconds;
+        countdown.textContent = remaining;
+
+        const interval = setInterval(() => {
+          remaining--;
+          countdown.textContent = remaining;
+
+          if (remaining <= 0) {
+            clearInterval(interval);
+            countdown.style.display = "none";
+            if (callback) callback();
+          }
+        }, 1000);
+      }
+
+      function checkSideCompletion() {
+        // Check if left side is completed
+        const leftCards = cards.filter((c) => c.side === "left");
+        leftSideCompleted = leftCards.every((c) => c.isMatched);
+
+        // Check if right side is completed
+        const rightCards = cards.filter((c) => c.side === "right");
+        rightSideCompleted = rightCards.every((c) => c.isMatched);
+
+        // If both sides are completed, show win screen
+        if (leftSideCompleted && rightSideCompleted) {
+          gameStarted = false;
+          clearInterval(timerInterval);
+          setTimeout(() => showWinScreen("both"), 500);
+        }
+        // If only left side is completed
+        else if (leftSideCompleted) {
+          setTimeout(() => showWinScreen("left"), 500);
+        }
+        // If only right side is completed
+        else if (rightSideCompleted) {
+          setTimeout(() => showWinScreen("right"), 500);
+        }
+      }
+
+      /* ───────────────────────── WIN SCREEN ───────────────────────── */
+      function showWinScreen(winningSide) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("winTimeDisplay").textContent = `${elapsed}s`;
+
+        // Set different messages based on which side won
+        const winTitle = document.getElementById("winTitle");
+        const teamWinDisplay = document.getElementById("teamWinDisplay");
+        const winQuote = document.getElementById("winQuote");
+
+        if (winningSide === "left") {
+          winTitle.textContent = "BLUE TEAM WINS!";
+          teamWinDisplay.textContent = "Blue Team Completed First!";
+          teamWinDisplay.className = "team-win blue-win";
+          winQuote.textContent =
+            "Blue team shows the way! Keep up the great work!";
+        } else if (winningSide === "right") {
+          winTitle.textContent = "RED TEAM WINS!";
+          teamWinDisplay.textContent = "Red Team Completed First!";
+          teamWinDisplay.className = "team-win red-win";
+          winQuote.textContent =
+            "Red team takes the lead! Excellent performance!";
+        } else {
+          winTitle.textContent = "TEAM VICTORY!";
+          teamWinDisplay.textContent = "Both Teams Completed Together!";
+          teamWinDisplay.className = "team-win";
+          teamWinDisplay.style.background =
+            "linear-gradient(to right, #0000FF, #FF0000)";
+          teamWinDisplay.style.webkitBackgroundClip = "text";
+          teamWinDisplay.style.webkitTextFillColor = "transparent";
+          winQuote.textContent =
+            "Perfect synchronization! Teamwork at its finest!";
+        }
+
+        // Load best times from user's data
+        const userData = users[user] || {};
+        const bestTimes = userData.bestTimes || {};
+        const difficultyKey = "multiplayer";
+
+        // Check if this is a new best time
+        if (!bestTimes[difficultyKey] || elapsed < bestTimes[difficultyKey]) {
+          bestTimes[difficultyKey] = elapsed;
+
+          // Update user's data
+          users[user] = {
+            ...userData,
+            bestTimes: bestTimes,
+          };
+
+          // Save to localStorage
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
+        // Display the best time
+        const bestTime = bestTimes[difficultyKey] || "--";
+        document.getElementById("bestTimeDisplay").textContent =
+          bestTime === "--" ? "--" : `${bestTime}s`;
+
+        // Award stars for multiplayer mode
+        const starsEarned = 15; // Fixed reward for multiplayer
+        document.getElementById("starsEarnedDisplay").textContent = starsEarned;
+
+        if (user && users[user]) {
+          users[user].stars = (users[user].stars || 0) + starsEarned;
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+          refreshStars();
+        }
+
+        // Create confetti effect
+        createConfetti();
+
+        // Show win screen
+        document.getElementById("winScreen").style.display = "flex";
+
+        // Save session history
+        try {
+          const sessions = JSON.parse(
+            localStorage.getItem("therapySessions") || "[]"
+          );
+          sessions.push({
+            date: new Date().toISOString(),
+            mode: "game",
+            game: "Memory Match (Multiplayer)",
+            difficulty: "multiplayer",
+            duration: elapsed,
+            score: winningSide === "both" ? "both" : winningSide,
+          });
+          localStorage.setItem("therapySessions", JSON.stringify(sessions));
+        } catch (err) {
+          console.warn("Could not save session history", err);
+        }
+      }
+
+      function createConfetti() {
+        const colors = [
+          "#ff0000",
+          "#00ff00",
+          "#0000ff",
+          "#ffff00",
+          "#ff00ff",
+          "#00ffff",
+        ];
+        const container = document.body;
+
+        for (let i = 0; i < 100; i++) {
+          const confetti = document.createElement("div");
+          confetti.className = "confetti";
+          confetti.style.backgroundColor =
+            colors[Math.floor(Math.random() * colors.length)];
+          confetti.style.left = Math.random() * 100 + "vw";
+          confetti.style.top = -10 + "px";
+          confetti.style.borderRadius = Math.random() * 50 + "%";
+          confetti.style.width = Math.random() * 10 + 5 + "px";
+          confetti.style.height = confetti.style.width;
+
+          container.appendChild(confetti);
+
+          const animationDuration = Math.random() * 3 + 2;
+
+          confetti.animate(
+            [
+              { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+              {
+                transform: `translate(${Math.random() * 200 - 100}px, ${
+                  window.innerHeight
+                }px) rotate(${Math.random() * 360}deg)`,
+                opacity: 0,
+              },
+            ],
+            {
+              duration: animationDuration * 1000,
+              easing: "cubic-bezier(0.1, 0.8, 0.9, 1)",
+              fill: "forwards",
+            }
+          );
+
+          setTimeout(() => {
+            confetti.remove();
+          }, animationDuration * 1000);
+        }
+      }
+
+      /* ───────────────────────── memorize preview ───────────────────────── */
+      function revealCards() {
+        cards.forEach((c) => c.startFlip(true));
+        drawCards();
+        document.getElementById("memorizeOverlay").style.display = "flex";
+
+        setTimeout(() => {
+          cards.forEach((c) => c.startFlip(false));
+          document.getElementById("memorizeOverlay").style.display = "none";
+          startTime = Date.now();
+          gameStarted = true;
+          timerInterval = setInterval(updateTimer, 1000);
+        }, PREVIEW_DURATION);
+      }
+
+      /* ───────────────────────── game reset ───────────────────────── */
+      function resetGame() {
+        if (revealTimeout) clearTimeout(revealTimeout);
+        if (timeLimitTimeout) clearTimeout(timeLimitTimeout);
+        if (timerInterval) clearInterval(timerInterval);
+        createCards();
+        leftSelectedCards = [];
+        rightSelectedCards = [];
+        leftSideCompleted = false;
+        rightSideCompleted = false;
+        gameStarted = false;
+        document.getElementById("winScreen").style.display = "none";
+        document.getElementById("timeLimitDisplay").style.display = "none";
+        revealCards();
+      }
+
+      document.getElementById("startBtn").addEventListener("click", resetGame);
+      document
+        .getElementById("playAgainBtn")
+        .addEventListener("click", resetGame);
+
+      /* ───────────────────────── MediaPipe Hands setup ───────────────────────── */
+      const hands = new Hands({
+        locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
+      });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.5,
+      });
+
+      /* ───────────────────────── Camera Selection (patched) ───────────────────────── */
+      const cameraSelect = document.getElementById("cameraSelect");
+      let currentStream = null;
+
+      async function initCameraSelector() {
+        try {
+          // First get permission and list devices
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+          stream.getTracks().forEach((track) => track.stop());
+
+          // Populate camera selection dropdown
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(
+            (device) => device.kind === "videoinput"
+          );
+
+          cameraSelect.innerHTML = "";
+          videoDevices.forEach((device) => {
+            const option = document.createElement("option");
+            option.value = device.deviceId;
+            option.text = device.label || `Camera ${cameraSelect.length + 1}`;
+            cameraSelect.appendChild(option);
+          });
+
+          // Start with first camera by default
+          if (videoDevices.length > 0) {
+            await startCamera(videoDevices[0].deviceId);
+          }
+
+          // Handle camera changes
+          cameraSelect.addEventListener("change", async () => {
+            await startCamera(cameraSelect.value);
+          });
+        } catch (error) {
+          console.error("Camera initialization failed:", error);
+          alert(
+            "Camera access is required for this game. Please enable camera permissions."
+          );
+        }
+      }
+
+      async function startCamera(deviceId) {
+        // Stop any existing stream
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop());
+        }
+
+        try {
+          // Start new stream with selected camera
+          currentStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: { exact: deviceId },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user",
+            },
+          });
+
+          videoElement.srcObject = currentStream;
+          await videoElement.play();
+
+          // Start processing frames
+          hands.onResults(onHandResults);
+          const camera = new Camera(videoElement, {
+            onFrame: async () => {
+              await hands.send({ image: videoElement });
+            },
+            width: 1280,
+            height: 720,
+          });
+          camera.start();
+        } catch (error) {
+          console.error("Error starting camera:", error);
+          alert(`Could not start camera: ${error.message}`);
+        }
+      }
+
+      /* ───────────────────────── Hands results ───────────────────────── */
+      function onHandResults(results) {
+        if (!gameStarted) {
+          drawCards();
+          return;
+        }
+
+        const now = Date.now();
+        const handPositions = [];
+
+        if (results.multiHandLandmarks) {
+          for (const lm of results.multiHandLandmarks) {
+            const tip = lm[8]; // index-finger tip
+            handPositions.push({
+              x: canvasElement.width - tip.x * canvasElement.width,
+              y: tip.y * canvasElement.height,
+            });
+          }
+        }
+
+        // hover detection - track each hand separately
+        const leftHandPositions = [];
+        const rightHandPositions = [];
+
+        // Simple heuristic: left side of screen for left hand, right side for right hand
+        handPositions.forEach((pos) => {
+          if (pos.x < canvasElement.width / 2) {
+            leftHandPositions.push(pos);
+          } else {
+            rightHandPositions.push(pos);
+          }
+        });
+
+        // Process left side cards with left hand positions
+        const leftCards = cards.filter(
+          (c) => c.side === "left" && !c.isMatched
+        );
+        for (const card of leftCards) {
+          let hovering = false;
+          for (const p of leftHandPositions) {
+            if (card.contains(p.x, p.y)) {
+              hovering = true;
+              if (!card.hoverStart) {
+                card.hoverStart = now;
+              } else if (
+                now - card.hoverStart >= FLIP_HOLD_TIME &&
+                !card.targetFaceUp &&
+                leftSelectedCards.length < 2
+              ) {
+                card.startFlip(true);
+                leftSelectedCards.push(card);
+                card.hoverStart = null;
+              }
+              break;
+            }
+          }
+          if (!hovering) card.hoverStart = null;
+        }
+
+        // Process right side cards with right hand positions
+        const rightCards = cards.filter(
+          (c) => c.side === "right" && !c.isMatched
+        );
+        for (const card of rightCards) {
+          let hovering = false;
+          for (const p of rightHandPositions) {
+            if (card.contains(p.x, p.y)) {
+              hovering = true;
+              if (!card.hoverStart) {
+                card.hoverStart = now;
+              } else if (
+                now - card.hoverStart >= FLIP_HOLD_TIME &&
+                !card.targetFaceUp &&
+                rightSelectedCards.length < 2
+              ) {
+                card.startFlip(true);
+                rightSelectedCards.push(card);
+                card.hoverStart = null;
+              }
+              break;
+            }
+          }
+          if (!hovering) card.hoverStart = null;
+        }
+
+        // Check matches for left side
+        if (leftSelectedCards.length === 2) {
+          const [c1, c2] = leftSelectedCards;
+          if (c1.shape === c2.shape) {
+            c1.isMatched = c2.isMatched = true;
+            leftSelectedCards = [];
+            checkSideCompletion();
+          } else {
+            setTimeout(() => {
+              c1.startFlip(false);
+              c2.startFlip(false);
+              leftSelectedCards = [];
+            }, 1000);
+          }
+        }
+
+        // Check matches for right side
+        if (rightSelectedCards.length === 2) {
+          const [c1, c2] = rightSelectedCards;
+          if (c1.shape === c2.shape) {
+            c1.isMatched = c2.isMatched = true;
+            rightSelectedCards = [];
+            checkSideCompletion();
+          } else {
+            setTimeout(() => {
+              c1.startFlip(false);
+              c2.startFlip(false);
+              rightSelectedCards = [];
+            }, 1000);
+          }
+        }
+
+        drawCards();
+      }
+
+      /* ───────────────────────── INIT PAGE ───────────────────────── */
+      if (!user || !users[user]) {
+        window.location.href = "/login.html";
+      } else {
+        refreshStars();
+        initCameraSelector();
+        createCards();
+        drawCards();
+      }
+    </script>
+  </body>
+</html>

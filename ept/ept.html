@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Squat Tracker</title>
+    <link rel="stylesheet" href="../css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div class="top-bar">
+      <a href="/dashboard.html" class="back-button"
+        ><i class="fas fa-arrow-left"></i> Back to Dashboard</a
+      >
+      <div class="star-display">🌟 Stars: <span id="starBalance">0</span></div>
+    </div>
+
+    <div class="main-container">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div class="hud top-left" id="angleDisplay">Angle: --°</div>
+        <div class="hud top-right" id="counterDisplay">Squats: 0</div>
+        <div class="status-indicator" id="statusIndicator"></div>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn">
+          <i class="fas fa-play"></i> Start Tracking
+        </button>
+        <button onclick="window.location.href='eptsel.html'">
+          Return to Selection Screen
+        </button>
+        <label for="angleInput">Required Angle:</label>
+        <input type="number" id="angleInput" min="60" max="150" value="90" />
+        <div class="timer">⏱️ Time: <span id="sessionTime">0</span>s</div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script>
+      const user = localStorage.getItem("nf_loggedInUser");
+      const users = JSON.parse(localStorage.getItem("nf_users") || "{}");
+
+      if (!user || !users[user]) {
+        window.location.href = "login.html";
+      }
+      document.getElementById("starBalance").textContent =
+        users[user].stars || 0;
+
+      const videoElement = document.getElementById("video");
+      const canvasElement = document.getElementById("canvas");
+      const canvasCtx = canvasElement.getContext("2d");
+      const angleDisplay = document.getElementById("angleDisplay");
+      const counterDisplay = document.getElementById("counterDisplay");
+      const statusIndicator = document.getElementById("statusIndicator");
+      const startBtn = document.getElementById("startBtn");
+      const angleInput = document.getElementById("angleInput");
+      const sessionTime = document.getElementById("sessionTime");
+
+      let squatCount = 0;
+      let squatPosition = "up";
+      let isTracking = false;
+      let pose = null;
+      let timer = 0;
+      let startTimestamp = null;
+
+      function init() {
+        canvasElement.width = 1280;
+        canvasElement.height = 720;
+        startBtn.addEventListener("click", startTracking);
+
+        pose = new Pose({
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+        });
+
+        pose.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+
+        pose.onResults(onPoseResults);
+      }
+
+      async function startTracking() {
+        if (isTracking) return;
+        isTracking = true;
+        startBtn.disabled = true;
+        squatCount = 0;
+        counterDisplay.textContent = "Squats: 0";
+        startTimestamp = Date.now();
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            //video: { width: 1280, height: 720, facingMode: "user" },
+            video: true,
+            audio: false,
+          });
+
+          videoElement.srcObject = stream;
+          videoElement.onloadedmetadata = () => {
+            videoElement.play();
+            requestAnimationFrame(processFrame);
+          };
+        } catch (err) {
+          alert("Could not access camera.");
+          stopTracking();
+        }
+      }
+
+      function stopTracking() {
+        isTracking = false;
+        if (videoElement.srcObject) {
+          videoElement.srcObject.getTracks().forEach((t) => t.stop());
+          videoElement.srcObject = null;
+        }
+      }
+
+      function processFrame() {
+        if (!isTracking) return;
+
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.drawImage(
+          videoElement,
+          0,
+          0,
+          canvasElement.width,
+          canvasElement.height
+        );
+        pose.send({ image: videoElement });
+
+        const now = Math.floor((Date.now() - startTimestamp) / 1000);
+        sessionTime.textContent = now;
+
+        requestAnimationFrame(processFrame);
+      }
+
+      function onPoseResults(results) {
+        if (!results.poseLandmarks) return;
+
+        const lm = results.poseLandmarks;
+        const w = canvasElement.width;
+        const h = canvasElement.height;
+
+        drawConnectors(canvasCtx, lm, POSE_CONNECTIONS, {
+          color: "#FF00FF",
+          lineWidth: 4,
+        });
+
+        const hip = lm[23],
+          knee = lm[25],
+          ankle = lm[27];
+        if (!hip || !knee || !ankle) return;
+
+        const [hx, hy] = [hip.x * w, hip.y * h];
+        const [kx, ky] = [knee.x * w, knee.y * h];
+        const [ax, ay] = [ankle.x * w, ankle.y * h];
+
+        const angle = calculateAngle([hx, hy], [kx, ky], [ax, ay]);
+        angleDisplay.textContent = `Angle: ${Math.round(angle)}°`;
+
+        const required = parseInt(angleInput.value) || 90;
+        const upThreshold = required + 30;
+
+        if (angle < required) {
+          statusIndicator.style.backgroundColor = "#00FF00";
+          if (squatPosition === "up") squatPosition = "down";
+        } else if (angle > upThreshold) {
+          statusIndicator.style.backgroundColor = "#0000FF";
+          if (squatPosition === "down") {
+            squatPosition = "up";
+            squatCount++;
+            counterDisplay.textContent = `Squats: ${squatCount}`;
+          }
+        } else {
+          statusIndicator.style.backgroundColor = "#FF0000";
+        }
+      }
+
+      function calculateAngle(a, b, c) {
+        const ab = [a[0] - b[0], a[1] - b[1]];
+        const cb = [c[0] - b[0], c[1] - b[1]];
+        const dot = ab[0] * cb[0] + ab[1] * cb[1];
+        const magAB = Math.sqrt(ab[0] ** 2 + ab[1] ** 2);
+        const magCB = Math.sqrt(cb[0] ** 2 + cb[1] ** 2);
+        return Math.acos(dot / (magAB * magCB)) * (180 / Math.PI);
+      }
+
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

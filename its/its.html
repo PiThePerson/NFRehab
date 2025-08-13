@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Therapeutic Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../css/sessions.css" />
+    <link rel="stylesheet" href="../css/main.css" />
+    <style>
+      /* Add language toggle styles */
+      .language-toggle {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+        font-weight: 600;
+      }
+
+      /* Calibration modal styles */
+      .calibration-modal {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .calibration-progress {
+        width: 100%;
+        height: 20px;
+        background-color: #e5e7eb;
+        border-radius: 10px;
+        margin: 20px 0;
+        overflow: hidden;
+      }
+      .calibration-progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+      .calibration-countdown {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #3b82f6;
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Language Toggle Button -->
+    <button class="language-toggle" id="languageToggle">ไทย / EN</button>
+
+    <div
+      class="game-container flex flex-col items-center justify-center min-h-screen"
+    >
+      <!-- Game Title with Medical Theme -->
+      <div class="text-center mb-4">
+        <h1
+          class="text-4xl font-bold text-blue-600 mb-2 translatable"
+          data-key="gameTitle"
+        >
+          Interactive Therapeutic System
+        </h1>
+        <p class="text-gray-600 translatable" data-key="gameSubtitle">
+          Train your grip strength and have fun at the same time!
+        </p>
+      </div>
+
+      <!-- Arduino Connection -->
+      <div class="mb-4 flex items-center space-x-6">
+        <div class="flex items-center">
+          <button
+            id="connectBtn"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg mr-2 hover:bg-blue-600 transition translatable"
+            data-key="connectArduino"
+          >
+            Connect Arduino
+          </button>
+          <span
+            id="arduinoStatus"
+            class="px-3 py-1 rounded-full text-xs bg-gray-200 text-gray-800 translatable"
+            data-key="disconnected"
+          >
+            Disconnected
+          </span>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-gray-600 translatable" data-key="fsrValue"
+            >FSR Value:</span
+          >
+          <span id="sensorValue" class="text-sm font-bold">0</span>
+        </div>
+      </div>
+
+      <!-- Game Canvas -->
+      <canvas
+        id="gameCanvas"
+        width="720"
+        height="480"
+        class="border border-gray-200 rounded-lg shadow-lg bg-transparent"
+      ></canvas>
+
+      <!-- Pressure Indicator Bar -->
+      <div
+        class="w-64 mt-6 bg-gray-100 rounded-full h-6 overflow-hidden border border-gray-300"
+      >
+        <div
+          id="pressureBar"
+          class="pressure-bar h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"
+          style="width: 0%"
+        ></div>
+      </div>
+      <div class="flex items-center mt-2">
+        <div class="text-sm text-gray-500 mr-2">
+          <span class="translatable" data-key="gripperPressure"
+            >Gripper Pressure:</span
+          >
+          <span id="pressureValue">0</span>%
+        </div>
+        <button
+          id="calibrateBtn"
+          class="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition translatable"
+          data-key="calibrate"
+        >
+          Calibrate
+        </button>
+      </div>
+
+      <!-- Game Controls -->
+      <div class="mt-6 flex space-x-4">
+        <button
+          id="startBtn"
+          class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md translatable"
+          data-key="startTherapy"
+        >
+          Start Therapy
+        </button>
+        <button
+          id="instructionsBtn"
+          class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition shadow-md"
+        >
+          ⭐ <span class="translatable" data-key="stars">Stars:</span>
+          <span id="starDisplay">0</span>
+        </button>
+      </div>
+
+      <!-- Scores Display -->
+      <div class="mt-6 flex space-x-8 text-center">
+        <div>
+          <div class="text-gray-500 translatable" data-key="sessionScore">
+            Session Score
+          </div>
+          <div id="currentScore" class="text-2xl font-bold text-blue-600">
+            0
+          </div>
+        </div>
+        <div>
+          <div class="text-gray-500 translatable" data-key="bestScore">
+            Best Score
+          </div>
+          <div id="bestScore" class="text-2xl font-bold text-blue-800">0</div>
+        </div>
+      </div>
+
+      <!-- Medical Indicators -->
+      <div class="mt-8 flex items-center space-x-4 text-blue-500">
+        <div class="flex items-center">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <div class="flex items-center">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Instructions Modal -->
+    <div
+      id="instructionsModal"
+      class="fixed inset-0 flex items-center justify-center hidden z-50 bg-black bg-opacity-50"
+    >
+      <div
+        class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full border border-blue-100"
+      >
+        <h2
+          class="text-2xl font-bold text-blue-600 mb-4 translatable"
+          data-key="therapyInstructions"
+        >
+          Therapy Instructions
+        </h2>
+        <ul class="list-disc pl-5 space-y-2 text-gray-700 mb-4">
+          <li class="translatable" data-key="instruction1">
+            Connect your Arduino gripper device first
+          </li>
+          <li class="translatable" data-key="instruction2">
+            Click "Calibrate" and squeeze with maximum strength
+          </li>
+          <li class="translatable" data-key="instruction3">
+            Squeeze your hand gripper to make the bird flap
+          </li>
+          <li class="translatable" data-key="instruction4">
+            Press SPACE BAR as alternative control
+          </li>
+          <li class="translatable" data-key="instruction5">
+            Maintain steady pressure to control flight
+          </li>
+          <li class="translatable" data-key="instruction6">
+            Navigate through the therapy obstacles
+          </li>
+          <li class="translatable" data-key="instruction7">
+            Each successful pass counts as a repetition
+          </li>
+        </ul>
+        <div class="flex justify-center">
+          <button
+            id="closeInstructions"
+            class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md translatable"
+            data-key="gotIt"
+          >
+            Got It!
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div
+      id="gameOverModal"
+      class="fixed inset-0 flex items-center justify-center hidden z-50 bg-black bg-opacity-50"
+    >
+      <div
+        class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full text-center border border-blue-100"
+      >
+        <h2
+          class="text-2xl font-bold text-red-500 mb-2 translatable"
+          data-key="sessionComplete"
+        >
+          Therapy Session Complete
+        </h2>
+        <p class="text-gray-700 mb-4 translatable" data-key="greatEffort">
+          Great effort! Your hand strength is improving.
+        </p>
+        <div class="text-xl mb-4">
+          <span class="text-gray-600 translatable" data-key="score"
+            >Score:
+          </span>
+          <span id="finalScore" class="font-bold text-blue-600">0</span>
+        </div>
+        <div class="text-lg mb-6">
+          <span class="text-gray-600 translatable" data-key="best">Best: </span>
+          <span id="finalBestScore" class="font-bold text-blue-800">0</span>
+        </div>
+        <button
+          id="restartBtn"
+          class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md translatable"
+          data-key="continueTherapy"
+        >
+          Continue Therapy
+        </button>
+        <div class="mt-4">
+          <button
+            onclick="window.location.href='/dashboard.html'"
+            class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition shadow-md translatable"
+            data-key="backToDashboard"
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calibration Modal -->
+    <div
+      id="calibrationModal"
+      class="fixed inset-0 flex items-center justify-center hidden z-50 bg-black bg-opacity-50"
+    >
+      <div
+        class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full border border-blue-100 calibration-modal"
+      >
+        <h2
+          class="text-2xl font-bold text-blue-600 mb-4 translatable"
+          data-key="calibrationTitle"
+        >
+          Calibration in Progress
+        </h2>
+        <p
+          class="text-gray-700 mb-2 translatable"
+          data-key="calibrationInstruction"
+        >
+          Please squeeze the gripper with your maximum strength
+        </p>
+        <div class="calibration-progress">
+          <div
+            id="calibrationProgressBar"
+            class="calibration-progress-bar"
+          ></div>
+        </div>
+        <div id="calibrationCountdown" class="calibration-countdown">5</div>
+        <p id="calibrationMaxValue" class="text-gray-600 mb-4">
+          Maximum value: <span id="currentMaxValue">0</span>
+        </p>
+        <button
+          id="cancelCalibrationBtn"
+          class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition shadow-md translatable"
+          data-key="cancelCalibration"
+        >
+          Cancel Calibration
+        </button>
+      </div>
+    </div>
+
+    <script>
+      /* ===== LANGUAGE TOGGLE FUNCTIONALITY ===== */
+      const translations = {
+        en: {
+          gameTitle: "Interactive Therapeutic System",
+          gameSubtitle:
+            "Train your grip strength and have fun at the same time!",
+          connectArduino: "Connect Arduino",
+          disconnectArduino: "Disconnect Arduino",
+          disconnected: "Disconnected",
+          connected: "Connected",
+          fsrValue: "FSR Value:",
+          gripperPressure: "Gripper Pressure:",
+          calibrate: "Calibrate",
+          calibrating: "Calibrating...",
+          calibrationTitle: "Calibration in Progress",
+          calibrationInstruction:
+            "Please squeeze the gripper with your maximum strength",
+          calibrationComplete:
+            "Calibration complete! Your maximum grip strength is",
+          cancelCalibration: "Cancel Calibration",
+          startTherapy: "Start Therapy",
+          stars: "Stars:",
+          sessionScore: "Session Score",
+          bestScore: "Best Score",
+          therapyInstructions: "Therapy Instructions",
+          instruction1: "Connect your Arduino gripper device first",
+          instruction2: 'Click "Calibrate" and squeeze with maximum strength',
+          instruction3: "Squeeze your hand gripper to make the bird flap",
+          instruction4: "Press SPACE BAR as alternative control",
+          instruction5: "Maintain steady pressure to control flight",
+          instruction6: "Navigate through the therapy obstacles",
+          instruction7: "Each successful pass counts as a repetition",
+          gotIt: "Got It!",
+          sessionComplete: "Therapy Session Complete",
+          greatEffort: "Great effort! Your hand strength is improving.",
+          score: "Score:",
+          best: "Best:",
+          continueTherapy: "Continue Therapy",
+          backToDashboard: "Back to Dashboard",
+          connectFirst: "Please connect Arduino first",
+          squeezeToStart: "Squeeze Gripper to Start",
+          squeezeToContinue: "Squeeze to Continue Therapy",
+        },
+        th: {
+          gameTitle: "ระบบบำบัดแบบโต้ตอบ",
+          gameSubtitle: "ฝึกความแข็งแรงของการจับและสนุกไปพร้อมกัน!",
+          connectArduino: "เชื่อมต่อ Arduino",
+          disconnectArduino: "ยกเลิกการเชื่อมต่อ Arduino",
+          disconnected: "ไม่เชื่อมต่อ",
+          connected: "เชื่อมต่อแล้ว",
+          fsrValue: "ค่า FSR:",
+          gripperPressure: "ความดันที่จับ:",
+          calibrate: "ปรับเทียบ",
+          calibrating: "กำลังปรับเทียบ...",
+          calibrationTitle: "กำลังปรับเทียบ",
+          calibrationInstruction: "กรุณาบีบที่จับด้วยความแรงสูงสุดของคุณ",
+          calibrationComplete:
+            "การปรับเทียบเสร็จสิ้น! ความแรงการจับสูงสุดของคุณคือ",
+          cancelCalibration: "ยกเลิกการปรับเทียบ",
+          startTherapy: "เริ่มบำบัด",
+          stars: "ดาว:",
+          sessionScore: "คะแนนเซสชัน",
+          bestScore: "คะแนนสูงสุด",
+          therapyInstructions: "คำแนะนำการบำบัด",
+          instruction1: "เชื่อมต่ออุปกรณ์จับ Arduino ก่อน",
+          instruction2: 'คลิก "ปรับเทียบ" และบีบด้วยความแรงสูงสุด',
+          instruction3: "บีบที่จับมือเพื่อให้นกกระพือปีก",
+          instruction4: "กด SPACE BAR เป็นการควบคุมทางเลือก",
+          instruction5: "รักษาความดันให้คงที่เพื่อควบคุมการบิน",
+          instruction6: "นำทางผ่านอุปสรรคการบำบัด",
+          instruction7: "แต่ละครั้งที่ผ่านนับเป็นหนึ่งครั้ง",
+          gotIt: "เข้าใจแล้ว!",
+          sessionComplete: "เซสชันบำบัดเสร็จสิ้น",
+          greatEffort: "ยอดเยี่ยม! ความแข็งแรงมือของคุณกำลังดีขึ้น",
+          score: "คะแนน:",
+          best: "สูงสุด:",
+          continueTherapy: "บำบัดต่อ",
+          backToDashboard: "กลับไปที่แดชบอร์ด",
+          connectFirst: "กรุณาเชื่อมต่อ Arduino ก่อน",
+          squeezeToStart: "บีบที่จับเพื่อเริ่มต้น",
+          squeezeToContinue: "บีบเพื่อบำบัดต่อ",
+        },
+      };
+
+      // Function to change language
+      function changeLanguage(lang) {
+        // Update html lang attribute
+        document.documentElement.lang = lang;
+
+        // Update all translatable elements
+        document.querySelectorAll(".translatable").forEach((element) => {
+          const key = element.getAttribute("data-key");
+          if (translations[lang] && translations[lang][key]) {
+            element.textContent = translations[lang][key];
+          }
+        });
+
+        // Update calibration button if calibrating
+        if (isCalibrating) {
+          document.getElementById("calibrateBtn").textContent =
+            translations[lang].calibrating;
+        }
+
+        // Update arduino status if connected
+        if (arduinoConnected) {
+          document.getElementById("arduinoStatus").textContent =
+            translations[lang].connected;
+        }
+
+        // Save language preference
+        localStorage.setItem("nf_language", lang);
+      }
+
+      // Language toggle button event
+      document
+        .getElementById("languageToggle")
+        .addEventListener("click", function () {
+          const currentLang = document.documentElement.lang;
+          const newLang = currentLang === "en" ? "th" : "en";
+          changeLanguage(newLang);
+          this.textContent = newLang === "en" ? "ไทย / EN" : "TH / English";
+        });
+
+      // Initialize language when page loads
+      document.addEventListener("DOMContentLoaded", function () {
+        const savedLang = localStorage.getItem("nf_language") || "en";
+        changeLanguage(savedLang);
+        document.getElementById("languageToggle").textContent =
+          savedLang === "en" ? "ไทย / EN" : "TH / English";
+      });
+
+      // Game variables
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      let gameRunning = false;
+      let gameStarted = false; // New variable to track if game has started
+      let score = 0;
+      let bestScore = localStorage.getItem("bestScore") || 0;
+      document.getElementById("bestScore").textContent = bestScore;
+
+      let animationFrameId;
+      let lastFrameTime = 0;
+      const fps = 60;
+      const frameInterval = 1000 / fps;
+      let gameStartTime = 0;
+
+      // Arduino variables
+      let serialPort;
+      let reader;
+      let arduinoConnected = false;
+      const connectBtn = document.getElementById("connectBtn");
+      const arduinoStatus = document.getElementById("arduinoStatus");
+      const sensorValue = document.getElementById("sensorValue");
+      let lastFsrValue = 0;
+      let maxFsrValue = 1023;
+      let isCalibrating = false;
+      const calibrateBtn = document.getElementById("calibrateBtn");
+      let calibrationTimeout;
+      let calibrationCountdown = 5;
+      let calibrationMaxValue = 0;
+      let therapyThreshold = 0; // Will be set to 70% of max value after calibration
+
+      // Calibration modal elements
+      const calibrationModal = document.getElementById("calibrationModal");
+      const calibrationProgressBar = document.getElementById(
+        "calibrationProgressBar"
+      );
+      const calibrationCountdownElement = document.getElementById(
+        "calibrationCountdown"
+      );
+      const currentMaxValueElement = document.getElementById("currentMaxValue");
+      const cancelCalibrationBtn = document.getElementById(
+        "cancelCalibrationBtn"
+      );
+
+      // Bird variables
+      const bird = {
+        x: 50,
+        y: canvas.height / 2,
+        width: 40,
+        height: 30,
+        velocity: 0,
+        gravity: 0.1,
+        jump: -5,
+        rotation: 0,
+        wingAngle: 0,
+        flapSpeed: 0.15,
+      };
+
+      // Pipe variables
+      const pipes = [];
+      const pipeWidth = 60;
+      const pipeGap = 400;
+      let pipeTimer = 0;
+      const pipeInterval = 1800;
+      let lastPipeTime = 0;
+
+      // Cloud variables
+      const clouds = [];
+      for (let i = 0; i < 4; i++) {
+        clouds.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height * 0.4,
+          width: 60 + Math.random() * 40,
+          speed: 0.5 + Math.random() * 0.5,
+        });
+      }
+
+      // Game controls
+      const startBtn = document.getElementById("startBtn");
+      const restartBtn = document.getElementById("restartBtn");
+      const instructionsBtn = document.getElementById("instructionsBtn");
+      const closeInstructions = document.getElementById("closeInstructions");
+      const instructionsModal = document.getElementById("instructionsModal");
+      const gameOverModal = document.getElementById("gameOverModal");
+
+      // Event listeners
+      startBtn.addEventListener("click", startGame);
+      restartBtn.addEventListener("click", startGame);
+      instructionsBtn.addEventListener("click", () =>
+        instructionsModal.classList.remove("hidden")
+      );
+      closeInstructions.addEventListener("click", () =>
+        instructionsModal.classList.add("hidden")
+      );
+      calibrateBtn.addEventListener("click", startCalibration);
+      cancelCalibrationBtn.addEventListener("click", cancelCalibration);
+
+      // Keyboard controls
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space" && gameRunning) {
+          bird.velocity = bird.jump;
+          bird.wingAngle = 20;
+          e.preventDefault();
+        }
+      });
+
+      // Calibration functions
+
+      function endCalibration() {
+        isCalibrating = false;
+        calibrationModal.classList.add("hidden");
+
+        // Set max value (minimum 10 to avoid division by zero)
+        maxFsrValue = Math.max(10, calibrationMaxValue);
+
+        // Set therapy threshold to 70% of max value
+        therapyThreshold = Math.round(maxFsrValue * 0.7);
+
+        // Show completion message
+        const lang = document.documentElement.lang;
+        alert(
+          `${translations[lang].calibrationComplete} ${maxFsrValue}. ${translations[lang].therapyThresholdSet} ${therapyThreshold} (70%).`
+        );
+
+        resetCalibrationButton();
+      }
+
+      function startCalibration() {
+        if (!arduinoConnected) {
+          alert(translations[document.documentElement.lang].connectFirst);
+          return;
+        }
+
+        isCalibrating = true;
+        calibrationMaxValue = 0;
+
+        // Show calibration modal
+        calibrationModal.classList.remove("hidden");
+        calibrationProgressBar.style.width = "0%";
+        calibrationCountdown = 5;
+        calibrationCountdownElement.textContent = calibrationCountdown;
+        currentMaxValueElement.textContent = "0";
+
+        // Update calibration button
+        calibrateBtn.textContent =
+          translations[document.documentElement.lang].calibrating;
+        calibrateBtn.classList.remove("bg-yellow-500", "hover:bg-yellow-600");
+        calibrateBtn.classList.add("bg-purple-500", "hover:bg-purple-600");
+        calibrateBtn.disabled = true;
+
+        // Start countdown
+        const countdownInterval = setInterval(() => {
+          calibrationCountdown--;
+          calibrationCountdownElement.textContent = calibrationCountdown;
+
+          if (calibrationCountdown <= 0) {
+            clearInterval(countdownInterval);
+            endCalibration();
+          }
+        }, 1000);
+
+        // Set timeout in case user doesn't squeeze
+        calibrationTimeout = setTimeout(() => {
+          if (isCalibrating) {
+            clearInterval(countdownInterval);
+            endCalibration();
+          }
+        }, 6000);
+      }
+
+      function updateCalibrationProgress(value) {
+        if (!isCalibrating) return;
+
+        // Update max value if current value is higher
+        if (value > calibrationMaxValue) {
+          calibrationMaxValue = value;
+          currentMaxValueElement.textContent = calibrationMaxValue;
+
+          // Update progress bar (show percentage of potential max)
+          const progressPercentage = Math.min(
+            100,
+            Math.round((value / 1023) * 100)
+          );
+          calibrationProgressBar.style.width = `${progressPercentage}%`;
+        }
+      }
+
+      function cancelCalibration() {
+        isCalibrating = false;
+        calibrationModal.classList.add("hidden");
+        resetCalibrationButton();
+        clearTimeout(calibrationTimeout);
+      }
+
+      function endGame() {
+        gameRunning = false;
+        gameStarted = false;
+        bird.frozen = true; // Freeze the bird
+
+        if (score > bestScore) {
+          bestScore = score;
+          localStorage.setItem("bestScore", bestScore);
+          document.getElementById("bestScore").textContent = bestScore;
+        }
+
+        saveSessionStats();
+
+        document.getElementById("finalScore").textContent = score;
+        document.getElementById("finalBestScore").textContent = bestScore;
+        gameOverModal.classList.remove("hidden");
+      }
+
+      function resetCalibrationButton() {
+        calibrateBtn.textContent =
+          translations[document.documentElement.lang].calibrate;
+        calibrateBtn.classList.remove("bg-purple-500", "hover:bg-purple-600");
+        calibrateBtn.classList.add("bg-yellow-500", "hover:bg-yellow-600");
+        calibrateBtn.disabled = false;
+      }
+
+      // Arduino connection
+      connectBtn.addEventListener("click", async () => {
+        if (!navigator.serial) {
+          alert(
+            translations[document.documentElement.lang].serialNotSupported ||
+              "Web Serial API not supported in this browser. Try Chrome or Edge."
+          );
+          return;
+        }
+
+        try {
+          if (arduinoConnected) {
+            disconnectArduino();
+            return;
+          }
+
+          serialPort = await navigator.serial.requestPort();
+          await serialPort.open({ baudRate: 9600 });
+
+          reader = serialPort.readable.getReader();
+          arduinoConnected = true;
+          connectBtn.textContent =
+            translations[document.documentElement.lang].disconnectArduino;
+          arduinoStatus.textContent =
+            translations[document.documentElement.lang].connected;
+          arduinoStatus.classList.remove("bg-gray-200");
+          arduinoStatus.classList.add("bg-green-200", "text-green-800");
+
+          readSerialData();
+        } catch (err) {
+          console.error("Arduino error:", err);
+          alert(
+            translations[document.documentElement.lang].connectFailed +
+              ": " +
+              err.message || "Failed to connect: " + err.message
+          );
+        }
+      });
+
+      async function readSerialData() {
+        try {
+          while (arduinoConnected) {
+            const { value, done } = await reader.read();
+            if (done) {
+              reader.releaseLock();
+              break;
+            }
+
+            const text = new TextDecoder().decode(value);
+            const lines = text.trim().split("\n");
+
+            for (const line of lines) {
+              if (line) {
+                const parsedValue = parseInt(line);
+
+                if (!isNaN(parsedValue)) {
+                  const displayValue = Math.min(1023, Math.max(0, parsedValue));
+
+                  // Update calibration if in progress
+                  if (isCalibrating) {
+                    updateCalibrationProgress(displayValue);
+                  }
+
+                  // Calculate percentage based on calibrated max value
+                  const percentage = Math.round(
+                    (displayValue / maxFsrValue) * 100
+                  );
+
+                  sensorValue.textContent = displayValue;
+                  document.getElementById(
+                    "pressureBar"
+                  ).style.width = `${percentage}%`;
+                  document.getElementById("pressureValue").textContent =
+                    percentage;
+
+                  // Change color based on therapy threshold (70% of max)
+                  if (percentage >= 70) {
+                    pressureBar.className =
+                      "pressure-bar h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full";
+
+                    // Squeeze to start game if not started
+                    if (!gameRunning && !gameStarted && !isCalibrating) {
+                      startGame();
+                    }
+
+                    // Squeeze to continue after game over
+                    if (
+                      !gameRunning &&
+                      !gameOverModal.classList.contains("hidden")
+                    ) {
+                      startGame();
+                    }
+                  } else {
+                    pressureBar.className =
+                      "pressure-bar h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full";
+                  }
+
+                  // Trigger bird flap if pressure crosses therapy threshold
+                  if (
+                    gameRunning &&
+                    percentage >= 70 &&
+                    displayValue - lastFsrValue > 0
+                  ) {
+                    bird.velocity = bird.jump;
+                    bird.wingAngle = 20;
+                  }
+                  lastFsrValue = displayValue;
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Serial read error:", err);
+          disconnectArduino();
+        }
+      }
+
+      function disconnectArduino() {
+        if (reader) {
+          reader.cancel();
+          reader.releaseLock();
+        }
+        if (serialPort) {
+          serialPort.close();
+        }
+        arduinoConnected = false;
+        connectBtn.textContent =
+          translations[document.documentElement.lang].connectArduino;
+        arduinoStatus.textContent =
+          translations[document.documentElement.lang].disconnected;
+        arduinoStatus.classList.remove("bg-green-200", "text-green-800");
+        arduinoStatus.classList.add("bg-gray-200", "text-gray-800");
+        sensorValue.textContent = "0";
+        document.getElementById("pressureBar").style.width = "0%";
+        document.getElementById("pressureValue").textContent = "0";
+        lastFsrValue = 0;
+        maxFsrValue = 1023;
+        if (isCalibrating) cancelCalibration();
+      }
+
+      // Game functions
+      function startGame() {
+        if (gameRunning) {
+          cancelAnimationFrame(animationFrameId);
+        }
+
+        gameRunning = true;
+        gameStartTime = Date.now();
+        score = 0;
+        bird.y = canvas.height / 2;
+        bird.velocity = 0;
+        bird.rotation = 0;
+        bird.wingAngle = 0;
+        pipes.length = 0;
+        lastPipeTime = 0;
+        document.getElementById("currentScore").textContent = score;
+
+        instructionsModal.classList.add("hidden");
+        gameOverModal.classList.add("hidden");
+
+        lastFrameTime = performance.now();
+        gameLoop();
+      }
+
+      function endGame() {
+        gameRunning = false;
+
+        if (score > bestScore) {
+          bestScore = score;
+          localStorage.setItem("bestScore", bestScore);
+          document.getElementById("bestScore").textContent = bestScore;
+        }
+
+        saveSessionStats();
+
+        document.getElementById("finalScore").textContent = score;
+        document.getElementById("finalBestScore").textContent = bestScore;
+        gameOverModal.classList.remove("hidden");
+      }
+
+      function saveSessionStats() {
+        const sessionData = {
+          id: Date.now(),
+          mode: "game",
+          game: "Flappy Bird",
+          score: score,
+          duration: Math.floor((Date.now() - gameStartTime) / 1000),
+          date: new Date().toISOString(),
+          maxPressure: maxFsrValue,
+          therapyThreshold: therapyThreshold,
+        };
+
+        const existingSessions = JSON.parse(
+          localStorage.getItem("therapySessions") || "[]"
+        );
+        existingSessions.unshift(sessionData);
+        localStorage.setItem(
+          "therapySessions",
+          JSON.stringify(existingSessions)
+        );
+      }
+
+      function gameLoop(timestamp) {
+        if (!gameRunning) return;
+
+        const deltaTime = timestamp - lastFrameTime;
+        if (deltaTime < frameInterval) {
+          animationFrameId = requestAnimationFrame(gameLoop);
+          return;
+        }
+        lastFrameTime = timestamp - (deltaTime % frameInterval);
+
+        update();
+        render();
+
+        animationFrameId = requestAnimationFrame(gameLoop);
+      }
+
+      function update() {
+        // Only update bird if not frozen
+        if (!bird.frozen) {
+          bird.velocity += bird.gravity;
+          bird.y += bird.velocity;
+          bird.rotation = bird.velocity * 0.1;
+          bird.wingAngle = Math.sin(Date.now() * bird.flapSpeed) * 15;
+
+          if (bird.y + bird.height > canvas.height || bird.y < 0) {
+            endGame();
+          }
+        }
+
+        // Update pipes and clouds regardless of frozen state
+        const currentTime = Date.now();
+        if (currentTime - lastPipeTime > pipeInterval && !bird.frozen) {
+          createPipe();
+          lastPipeTime = currentTime;
+        }
+
+        for (let i = pipes.length - 1; i >= 0; i--) {
+          pipes[i].x -= 3;
+
+          if (
+            !pipes[i].passed &&
+            bird.x > pipes[i].x + pipeWidth &&
+            !bird.frozen
+          ) {
+            pipes[i].passed = true;
+            score++;
+            document.getElementById("currentScore").textContent = score;
+
+            // Update stars
+            const user = localStorage.getItem("nf_loggedInUser");
+            const users = JSON.parse(localStorage.getItem("nf_users") || "{}");
+            if (users[user]) {
+              users[user].stars = (users[user].stars || 0) + 1;
+              localStorage.setItem("nf_users", JSON.stringify(users));
+              document.getElementById("starDisplay").textContent =
+                users[user].stars;
+            }
+          }
+
+          if (
+            !bird.frozen &&
+            bird.x < pipes[i].x + pipeWidth &&
+            bird.x + bird.width > pipes[i].x &&
+            (bird.y < pipes[i].topHeight ||
+              bird.y + bird.height > pipes[i].topHeight + pipeGap)
+          ) {
+            endGame();
+          }
+
+          if (pipes[i].x + pipeWidth < 0) {
+            pipes.splice(i, 1);
+          }
+        }
+
+        for (let i = 0; i < clouds.length; i++) {
+          clouds[i].x -= clouds[i].speed;
+          if (clouds[i].x + clouds[i].width < 0) {
+            clouds[i].x = canvas.width;
+            clouds[i].y = Math.random() * canvas.height * 0.4;
+          }
+        }
+      }
+
+      function createPipe() {
+        const minHeight = 50;
+        const maxHeight = canvas.height - pipeGap - minHeight;
+        const topHeight =
+          Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+
+        pipes.push({
+          x: canvas.width,
+          topHeight: topHeight,
+          passed: false,
+        });
+      }
+
+      function drawBird() {
+        ctx.save();
+        ctx.translate(bird.x + bird.width / 2, bird.y + bird.height / 2);
+        ctx.rotate(bird.rotation);
+
+        // Body
+        ctx.fillStyle = "#FF9800";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, bird.width / 2, bird.height / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head
+        ctx.fillStyle = "#FFC107";
+        ctx.beginPath();
+        ctx.arc(
+          bird.width / 3,
+          -bird.height / 3,
+          bird.width / 3,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+
+        // Eye
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(bird.width / 3 + 5, -bird.height / 3 - 3, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Beak
+        ctx.fillStyle = "#FF5722";
+        ctx.beginPath();
+        ctx.moveTo(bird.width / 3 + 10, -bird.height / 3);
+        ctx.lineTo(bird.width / 3 + 20, -bird.height / 3 - 3);
+        ctx.lineTo(bird.width / 3 + 20, -bird.height / 3 + 3);
+        ctx.closePath();
+        ctx.fill();
+
+        // Wing
+        ctx.fillStyle = "#FFA000";
+        ctx.save();
+        ctx.translate(-5, 0);
+        ctx.rotate((bird.wingAngle * Math.PI) / 180);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(-15, -15, -30, 0);
+        ctx.quadraticCurveTo(-15, 15, 0, 0);
+        ctx.fill();
+        ctx.restore();
+
+        // Tail
+        ctx.fillStyle = "#FFA000";
+        ctx.beginPath();
+        ctx.moveTo(-bird.width / 2, 0);
+        ctx.quadraticCurveTo(
+          -bird.width / 2 - 10,
+          -10,
+          -bird.width / 2 - 20,
+          0
+        );
+        ctx.quadraticCurveTo(-bird.width / 2 - 10, 10, -bird.width / 2, 0);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function render() {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Sky gradient
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        skyGradient.addColorStop(0, "#87CEEB");
+        skyGradient.addColorStop(1, "#E0F7FA");
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Clouds
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        for (let i = 0; i < clouds.length; i++) {
+          ctx.beginPath();
+          ctx.arc(
+            clouds[i].x,
+            clouds[i].y,
+            clouds[i].width * 0.3,
+            0,
+            Math.PI * 2
+          );
+          ctx.arc(
+            clouds[i].x + clouds[i].width * 0.3,
+            clouds[i].y - clouds[i].width * 0.1,
+            clouds[i].width * 0.25,
+            0,
+            Math.PI * 2
+          );
+          ctx.arc(
+            clouds[i].x + clouds[i].width * 0.6,
+            clouds[i].y,
+            clouds[i].width * 0.3,
+            0,
+            Math.PI * 2
+          );
+          ctx.arc(
+            clouds[i].x + clouds[i].width * 0.3,
+            clouds[i].y + clouds[i].width * 0.1,
+            clouds[i].width * 0.25,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+        }
+
+        // Pipes
+        for (let i = 0; i < pipes.length; i++) {
+          // Top pipe
+          ctx.fillStyle = "#4CAF50";
+          ctx.fillRect(pipes[i].x, 0, pipeWidth, pipes[i].topHeight);
+          ctx.fillStyle = "#388E3C";
+          ctx.fillRect(
+            pipes[i].x - 2,
+            pipes[i].topHeight - 15,
+            pipeWidth + 4,
+            15
+          );
+
+          // Bottom pipe
+          ctx.fillStyle = "#4CAF50";
+          ctx.fillRect(
+            pipes[i].x,
+            pipes[i].topHeight + pipeGap,
+            pipeWidth,
+            canvas.height - pipes[i].topHeight - pipeGap
+          );
+          ctx.fillStyle = "#388E3C";
+          ctx.fillRect(
+            pipes[i].x - 2,
+            pipes[i].topHeight + pipeGap,
+            pipeWidth + 4,
+            15
+          );
+        }
+
+        drawBird();
+
+        // Ground
+        ctx.fillStyle = "#8BC34A";
+        ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+        ctx.fillStyle = "#689F38";
+        for (let i = 0; i < canvas.width; i += 10) {
+          ctx.beginPath();
+          ctx.moveTo(i, canvas.height - 20);
+          ctx.lineTo(i + 5, canvas.height - 30);
+          ctx.lineTo(i + 10, canvas.height - 20);
+          ctx.fill();
+        }
+
+        // Score display
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 20px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText(
+          `${
+            translations[document.documentElement.lang].score || "Score"
+          }: ${score}`,
+          20,
+          40
+        );
+        ctx.fillText(
+          `${
+            translations[document.documentElement.lang].best || "Best"
+          }: ${bestScore}`,
+          20,
+          70
+        );
+
+        if (!gameRunning && !gameStarted) {
+          ctx.fillStyle = "#000";
+          ctx.font = "bold 24px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(
+            translations[document.documentElement.lang].squeezeToStart,
+            canvas.width / 2,
+            canvas.height / 2
+          );
+        }
+
+        // Show "Squeeze to Continue" message in game over modal
+        if (!gameRunning && !gameOverModal.classList.contains("hidden")) {
+          const modalText = document.createElement("p");
+          modalText.className = "text-gray-600 mb-2";
+          modalText.textContent =
+            translations[document.documentElement.lang].squeezeToContinue;
+          if (!document.getElementById("squeezeContinueText")) {
+            modalText.id = "squeezeContinueText";
+            gameOverModal.querySelector(".text-lg").before(modalText);
+          }
+        }
+      }
+
+      // Initialize with a rendered canvas
+      render();
+
+      ctx.fillStyle = "#000";
+      ctx.font = "bold 24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        translations[document.documentElement.lang].squeezeToStart ||
+          "Squeeze Gripper to Start",
+        canvas.width / 2,
+        canvas.height / 2
+      );
+    </script>
+  </body>
+</html>

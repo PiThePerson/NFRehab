@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+    <link rel="stylesheet" href="css/main.css" />
+    <style>
+      /* Consent Modal Styles */
+      .consent-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        overflow-y: auto;
+      }
+
+      .consent-content {
+        max-width: 840px;
+        margin: 40px auto;
+        padding: 32px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+      }
+
+      .consent-scroll-box {
+        max-height: 420px;
+        overflow-y: auto;
+        padding-right: 12px;
+        border: 1px solid #c3d2e2;
+        border-radius: 8px;
+        background: #f9fcff;
+      }
+
+      .consent-inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .consent-checkbox {
+        display: flex;
+        gap: 8px;
+        margin: 1.4em 0;
+        font-size: 0.97rem;
+      }
+
+      .consent-btn {
+        background: #006dff;
+        color: #fff;
+        border: none;
+        padding: 10px 22px;
+        font-size: 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      .consent-btn:disabled {
+        background: #9ab8f0;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container" id="loginPage">
+      <img src="../images/nfl1.png" alt="logo" class="logo-img" />
+      <input
+        class="login-input"
+        type="text"
+        id="username"
+        placeholder="Username"
+      />
+      <input
+        class="login-input"
+        type="password"
+        id="password"
+        placeholder="Password"
+      />
+      <button class="login-btn" onclick="login()">Login</button>
+      <button class="register-btn" onclick="showRegister()">Register</button>
+      <button class="exit-btn" onclick="exitApp()">Exit</button>
+    </div>
+
+    <div class="login-container" id="registerPage" style="display: none">
+      <img src="../images/nfl1.png" alt="logo" class="logo-img" />
+      <input
+        class="login-input"
+        type="text"
+        id="reg-username"
+        placeholder="Username"
+      />
+      <input
+        class="login-input"
+        type="password"
+        id="reg-password"
+        placeholder="Password"
+      />
+      <input
+        class="login-input"
+        type="password"
+        id="reg-password2"
+        placeholder="Confirm Password"
+      />
+      <button class="register-btn" onclick="register()">Create Account</button>
+      <button class="exit-btn" onclick="hideRegister()">Back to Login</button>
+    </div>
+
+    <!-- Consent Form Modal -->
+    <div id="consentModal" class="consent-modal">
+      <div class="consent-content">
+        <h1>แบบฟอร์มแสดงความยินยอมให้เก็บและใช้ข้อมูล<br />(Consent Form)</h1>
+        <p>
+          <strong
+            >โครงการ NeuronFRAMES –
+            ระบบปัญญาประดิษฐ์เพื่อการฟื้นฟูสมรรถภาพ</strong
+          >
+        </p>
+
+        <div class="consent-scroll-box">
+          <h2>1. ข้อมูลโครงการและวัตถุประสงค์</h2>
+          <p>
+            โครงการ NeuronFRAMES
+            มุ่งพัฒนาระบบฟื้นฟูสมรรถภาพด้วยเทคโนโลยีตรวจจับท่าทางร่วมกับเกม ...
+            (ใส่รายละเอียดเต็มตามเวอร์ชันล่าสุดของคุณ)
+          </p>
+
+          <h2>2. ประเภทและขอบเขตของข้อมูลที่เก็บ</h2>
+          <ul>
+            <li><strong>ข้อมูลตัวตน:</strong> ชื่อ–สกุล อายุ เพศ ฯลฯ</li>
+            <li>
+              <strong>ข้อมูลภาพ/เสียง:</strong> วิดีโอ-ภาพนิ่ง-เสียงขณะใช้งาน
+            </li>
+            <li>
+              <strong>ข้อมูลเซนเซอร์ & ประสิทธิภาพ:</strong> ค่าแรงบีบ คะแนน ฯลฯ
+            </li>
+            <li>
+              <strong>ข้อมูลเทคนิค:</strong> รุ่นอุปกรณ์ ระบบปฏิบัติการ ฯลฯ
+            </li>
+          </ul>
+
+          <h2>3. วิธีใช้และการเปิดเผยข้อมูล</h2>
+          <p>
+            ข้อมูลจะถูกใช้เพื่อวิเคราะห์ ปรับปรุงอัลกอริทึม เผยแพร่ผลเชิงสถิติ
+            ฯลฯ และอาจถูกแบ่งปันกับผู้ร่วมพัฒนาภายใต้ข้อตกลงรักษาความลับ
+          </p>
+
+          <h2>4. ความเสี่ยง ผลประโยชน์ และข้อจำกัดความรับผิด</h2>
+          <ul>
+            <li>
+              ความเสี่ยงด้านความเป็นส่วนตัวและกายภาพหากใช้โปรแกรมโดยไม่มีผู้เชี่ยวชาญกำกับ
+            </li>
+            <li>
+              NeuronFRAMES
+              ไม่รับผิดชอบต่อความเสียหายที่เกิดขึ้นจากการใช้งานโดยหน้าที่ของผู้ใช้
+            </li>
+          </ul>
+
+          <h2>5. สิทธิของผู้ใช้</h2>
+          <p>คุณสามารถถอนความยินยอม ขอสำเนา แก้ไข หรือลบข้อมูลตลอดเวลา ...</p>
+
+          <h2>6. การติดต่อสอบถาม</h2>
+          <p>
+            ทีม NeuronFRAMES (รหัสโครงการ 27P23C0096)<br />โทร: __________ |
+            อีเมล: support@neuronframes.ai
+          </p>
+        </div>
+
+        <label class="consent-checkbox">
+          <input type="checkbox" id="agreeBox" required />
+          &nbsp;ข้าพเจ้าได้อ่านและยอมรับเงื่อนไขทั้งหมดในเอกสารนี้โดยสมัครใจ
+        </label>
+
+        <div class="consent-inputs">
+          <div>
+            <label
+              >ชื่อ–สกุล (พิมพ์)<br />
+              <input
+                type="text"
+                id="fullName"
+                placeholder="กรอกชื่อ–สกุล"
+                required
+              />
+            </label>
+          </div>
+          <div>
+            <label
+              >วันที่<br />
+              <input type="date" id="consentDate" required />
+            </label>
+          </div>
+        </div>
+
+        <button
+          class="consent-btn"
+          id="consentSubmitBtn"
+          disabled
+          onclick="submitConsent()"
+        >
+          ยืนยันความยินยอม
+        </button>
+        <button
+          class="consent-btn"
+          style="background: #ff4444; margin-left: 10px"
+          onclick="rejectConsent()"
+        >
+          ปฏิเสธ
+        </button>
+      </div>
+    </div>
+
+    <script>
+      let users = JSON.parse(localStorage.getItem("nf_users") || "{}");
+      let newlyRegisteredUsername = "";
+
+      function saveUsers() {
+        localStorage.setItem("nf_users", JSON.stringify(users));
+      }
+
+      function login() {
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value;
+        if (!username || !password) {
+          alert("Please enter username and password.");
+          return;
+        }
+        if (!users[username] || users[username].password !== password) {
+          alert("Invalid username or password.");
+          return;
+        }
+        localStorage.setItem("nf_loggedInUser", username);
+        window.location.href = "../dashboard.html";
+      }
+
+      function showRegister() {
+        document.getElementById("loginPage").style.display = "none";
+        document.getElementById("registerPage").style.display = "";
+      }
+
+      function hideRegister() {
+        document.getElementById("registerPage").style.display = "none";
+        document.getElementById("loginPage").style.display = "";
+      }
+
+      function register() {
+        const username = document.getElementById("reg-username").value.trim();
+        const password = document.getElementById("reg-password").value;
+        const password2 = document.getElementById("reg-password2").value;
+
+        if (!username || !password || !password2) {
+          alert("Please fill in all fields.");
+          return;
+        }
+        if (password !== password2) {
+          alert("Passwords do not match.");
+          return;
+        }
+        if (users[username]) {
+          alert("Username already exists.");
+          return;
+        }
+
+        // Store the username temporarily before showing consent
+        newlyRegisteredUsername = username;
+
+        // Show the consent form
+        document.getElementById("consentModal").style.display = "block";
+
+        // Set today's date as default
+        const today = new Date().toISOString().split("T")[0];
+        document.getElementById("consentDate").value = today;
+
+        // Enable/disable submit button based on checkbox
+        const agreeBox = document.getElementById("agreeBox");
+        const submitBtn = document.getElementById("consentSubmitBtn");
+        agreeBox.addEventListener("change", () => {
+          submitBtn.disabled = !agreeBox.checked;
+        });
+      }
+
+      function submitConsent() {
+        const fullName = document.getElementById("fullName").value.trim();
+        const consentDate = document.getElementById("consentDate").value;
+
+        if (!fullName || !consentDate) {
+          alert("Please fill in all consent form fields.");
+          return;
+        }
+
+        // Create the user account
+        users[newlyRegisteredUsername] = {
+          password: document.getElementById("reg-password").value,
+          fullName: fullName,
+          consentDate: consentDate,
+          leaderboard: 169,
+          therapy: 0,
+          achievements: 5,
+          stars: 0,
+        };
+        saveUsers();
+
+        // Hide the consent form
+        document.getElementById("consentModal").style.display = "none";
+
+        // Clear the registration form
+        document.getElementById("reg-username").value = "";
+        document.getElementById("reg-password").value = "";
+        document.getElementById("reg-password2").value = "";
+
+        // Show success message and go back to login
+        alert("Account created successfully! You may now log in.");
+        hideRegister();
+      }
+
+      function rejectConsent() {
+        // Clear the registration form
+        document.getElementById("reg-username").value = "";
+        document.getElementById("reg-password").value = "";
+        document.getElementById("reg-password2").value = "";
+
+        // Hide the consent form
+        document.getElementById("consentModal").style.display = "none";
+
+        // Show message
+        alert("Account is not valid. Please try again.");
+      }
+
+      function exitApp() {
+        window.close();
+      }
+
+      const USERS_KEY = "nf_users";
+      const db = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+
+      db["admin@nframes"] = {
+        password: "admin123",
+        role: "admin",
+        name: "Admin",
+        stars: 0,
+      };
+
+      Object.keys(db).forEach((u) => {
+        if (!db[u].role) db[u].role = "patient";
+        if (!db[u].goals) {
+          db[u].goals = { squatTarget: 10, gripTarget: 50, speechTarget: 80 };
+        }
+      });
+      localStorage.setItem(USERS_KEY, JSON.stringify(db));
+    </script>
+  </body>
+</html>
